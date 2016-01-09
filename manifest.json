@@ -1,0 +1,19 @@
+{
+  "manifest_version": 2,
+  "name": "Loadster Recorder",
+  "description": "This extension lets you record Loadster scripts from your browser",
+  "version": "1.0",
+  "browser_action": {
+    "default_icon": "images/icon.png",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "scripts": ["js/background.js"]
+  },
+  "permissions": [
+    "storage",
+    "webRequest",
+    "webRequestBlocking",
+    "*://*/*"
+  ]
+}

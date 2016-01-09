@@ -1,0 +1,144 @@
+<!doctype html>
+<!--
+ This page is shown when the extension button is clicked, because the
+ "browser_action" field in manifest.json contains the "default_popup" key with
+ value "popup.html".
+ -->
+<html>
+  <head>
+    <title>Getting Started Extension's Popup</title>
+    <style>
+      body {
+        font-family: "Segoe UI", "Lucida Grande", Tahoma, sans-serif;
+        font-size: 100%;
+        background: #f9f9f9;
+        color: #000000;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        cursor: default;
+        user-select: none !important;
+        padding: 0;
+        margin: 0;
+      }
+
+      .logo {
+        height: 50px;
+        background-image: url(images/logo-150x30.png);
+        background-repeat: no-repeat;
+        background-position: 10px 10px;
+      }
+
+      .panel {
+        background: #eeeeee;
+        clear: both;
+        margin: 0 0;
+        border-top: 1px solid #dddddd;
+        border-bottom: 1px solid #dddddd;
+        padding: 30px 0 22px 0;
+        width: 300px;
+      }
+
+      .toggle {
+        width: 100px;
+        height: 40px;
+        margin: 0 auto 5px auto;
+        border: 1px solid #aaaaaa;
+        border-radius: 5px;
+        transition: all 150ms ease-in-out;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .toggle .switch {
+        width: 55px;
+        height: 40px;
+        background: #bbbbbb;
+        border-radius: 4px;
+        transition: all 150ms ease-in-out;
+        position: relative;
+        background: linear-gradient(170deg, #dddddd 0%, #999999 100%);
+        box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.4);
+      }
+
+      .toggle .switch .bevel {
+        background: #bbbbbb;
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        bottom: 2px;
+        left: 2px;
+        border-radius: 4px;
+      }
+
+      .toggle.on {
+        background: #00bb00;
+      }
+
+      .toggle.off {
+        background: #bb3900;
+      }
+
+      .toggle.on .switch {
+        margin-left: 0;
+      }
+
+      .toggle.off .switch {
+        margin-left: 45px;
+      }
+
+      #status {
+        text-align: center;
+        font-size: 80%;
+      }
+
+      #status.on .on {
+        display: inline;
+        color: #00bb00;
+      }
+
+      #status.on .off {
+        display: none;
+      }
+
+      #status.off .on {
+        display: none;
+      }
+
+      #status.off .off {
+        display: inline;
+        color: #bb3900;
+      }
+
+      .description {
+        color: #444444;
+        font-size: 80%;
+        padding: 10px;
+      }
+
+      @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) { 
+        .logo {
+          background-image: url(images/logo-150x30@2x.png);
+          background-size: 150px 30px;
+        }
+      }
+
+    </style>
+    <script src="js/popup.js"></script>
+  </head>
+  <body>
+    <div class="logo"></div>
+    <div class="panel">
+      <div id="toggle" class="toggle on"><div id="switch" class="switch"><div class="bevel"></div></div></div>
+      <div id="status"><span class="on">Enabled</span><span class="off">Disabled</span></div>
+    </div>
+    <div class="description">
+      When enabled, your browser traffic will be shared with 
+      Loadster Workbench for recording load test scripts.
+    </div>
+  </body>
+</html>
+
