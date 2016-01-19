@@ -10,6 +10,6 @@ To learn more about Loadster and load testing in general, check out [www.loadste
 
 ## About this project
 
-While Loadster Workbench is a commercial product, our Chrome extension is open source under the MIT License. We've put it on GitHub because we want you to be able to freely inspect the extension's source code and understand how it works.
+While Loadster Workbench is a commercial product, our Chrome extension is open source under the [Apache License](LICENSE). We've put it on GitHub because we want you to be able to freely inspect the extension's source code and understand how it works.
 
 If you have any questions about the extension or its licensing, please contact [info@loadsterperformance.com](mailto:info@loadsterperformance.com).
