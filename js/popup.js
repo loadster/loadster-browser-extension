@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (toggle) {
         refreshToggle(isEnabled());
 
-        toggle.onclick = function(event) {
+        toggle.onmousedown = function(event) {
             if (isEnabled()) {
                 setEnabled(false);
                 refreshToggle(false);
