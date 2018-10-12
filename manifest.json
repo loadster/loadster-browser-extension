@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Loadster Recorder",
-  "description": "Create load test scripts to run in Loadster Workbench.",
-  "version": "1.1",
+  "description": "Create load test scripts to run in Loadster.",
+  "version": "2.0",
   "icons": {
     "16": "images/icon-16x16.png",
     "32": "images/icon-32x32.png",
@@ -22,5 +22,8 @@
     "webRequest",
     "webRequestBlocking",
     "*://*/*"
-  ]
+  ],
+  "externally_connectable": {
+    "matches": ["*://localhost/*", "https://loadster.app/*"]
+  }
 }

@@ -2,19 +2,20 @@ var LOADSTER_URL = "http://localhost:1999/recording/events?type=chrome";
 var INTERVAL = 1000;
 
 var requests = {}; // Requests are stored here until they are uploaded
+var ports = []; // Listeners from the Loadster website that want to receive recording events
 
 //
 // Stores a request if we haven't seen it before; otherwise updates it.
 //
-function requestUpdated(info) {
-    if (info.url == LOADSTER_URL) {
+function requestUpdated (info) {
+    if (info.url === LOADSTER_URL) {
         return;
     } else if (!requests[info.requestId]) {
         requests[info.requestId] = {
             timeStarted: new Date().getTime()
         };
     }
-    
+
     // Base64 encode the body parts if necessary
     if (info.requestBody && info.requestBody.raw) {
         for (var i = 0; i < info.requestBody.raw.length; i++) {
@@ -38,7 +39,7 @@ function requestUpdated(info) {
 //
 // Updates a request and checks if it's being redirected.
 // 
-function headersReceived(info) {
+function headersReceived (info) {
     requestUpdated(info);
 
     if (info.statusCode == 301 || info.statusCode == 302) {
@@ -50,7 +51,7 @@ function headersReceived(info) {
 // Clones a request when it is redirected, marking the redirected one as complete and
 // keeping the original for further updates.
 //
-function requestRedirected(info) {
+function requestRedirected (info) {
     var request = requests[info.requestId];
     var redirected = {};
 
@@ -72,7 +73,7 @@ function requestRedirected(info) {
 //
 // Finishes a normal request, marking it completed.
 //
-function finishRequest(info) {
+function finishRequest (info) {
     info.completed = true;
     info.timeCompleted = new Date().getTime();
 
@@ -82,14 +83,14 @@ function finishRequest(info) {
 //
 // Checks if recording is enabled
 //
-function isEnabled() {
+function isEnabled () {
     return localStorage["loadster.recording.enabled"] == "true";
 }
 
 //
 // Reads an array buffer into a Base64 string
 //
-function toBase64(buffer) {
+function toBase64 (buffer) {
     var binary = '';
     var bytes = new Uint8Array(buffer);
     var length = bytes.byteLength;
@@ -105,7 +106,7 @@ function toBase64(buffer) {
 // Create a catch-all filter so we see all types of content
 //
 var filter = {
-    urls: [ "*://*/*" ],
+    urls: ["*://*/*"],
     types: ["main_frame", "sub_frame", "stylesheet", "script", "image", "object", "xmlhttprequest", "other"]
 };
 
@@ -120,9 +121,33 @@ chrome.webRequest.onResponseStarted.addListener(requestUpdated, filter, ['respon
 chrome.webRequest.onCompleted.addListener(finishRequest, filter, ['responseHeaders']);
 
 //
+// Listen for messages from the Loadster dashboard
+//
+chrome.runtime.onConnectExternal.addListener(function (port) {
+    console.assert(port.name === 'loadster-recorder', 'Only accepting incoming messages from loadster-recorder')
+
+    console.log('Adding port ', port);
+    ports.push(port);
+
+    port.onMessage.addListener(function (msg) {
+        if (msg.type === 'Ping') {
+            port.postMessage({type: 'Pong', enabled: isEnabled()})
+        } else {
+            console.log('got unexpected message: ', msg);
+        }
+    })
+
+    port.onDisconnect.addListener(function () {
+        console.log('Removing port ', port);
+
+        ports.splice(ports.indexOf(port, 1));
+    })
+})
+
+//
 // Upload events to Loadster at set intervals
 //
-setInterval(function() {
+setInterval(function () {
     var upload = {};
 
     for (var requestId in requests) {
@@ -138,14 +163,14 @@ setInterval(function() {
     if (Object.keys(upload).length && isEnabled()) {
         var xhr = new XMLHttpRequest();
 
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState == 4) {
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
                 var status = xhr.status;
 
-                if (status == 200 || status == 201) {
+                if (status === 200 || status === 201) {
                     console.log("Uploaded " + Object.keys(upload).length + " recording events to " + LOADSTER_URL);
                 } else {
-                    throw new Error("HTTP POST failed with status " + status);
+                    console.warn("Failed to upload " + Object.keys(upload).length + " recording events to " + LOADSTER_URL);
                 }
             }
         };
@@ -153,6 +178,12 @@ setInterval(function() {
         xhr.open("POST", LOADSTER_URL, true);
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.send(JSON.stringify(upload));
+
+        console.log('Sending recording events to ' + ports.length + ' port(s)')
+
+        ports.forEach(function (port) {
+            port.postMessage({type: "RecordingEvents", data: upload});
+        });
     }
 }, INTERVAL);
 
