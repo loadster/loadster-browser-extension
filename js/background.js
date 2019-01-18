@@ -1,5 +1,10 @@
-var LOADSTER_URL = "http://localhost:1999/recording/events?type=chrome";
+var WORKBENCH_URL = "http://localhost:1999/recording/events?type=chrome";
 var INTERVAL = 1000;
+
+var IGNORED_PREFIXES = [
+    "https://loadster.app",
+    "https://speedway.app"
+]
 
 var requests = {}; // Requests are stored here until they are uploaded
 var ports = []; // Listeners from the Loadster website that want to receive recording events
@@ -8,32 +13,43 @@ var ports = []; // Listeners from the Loadster website that want to receive reco
 // Stores a request if we haven't seen it before; otherwise updates it.
 //
 function requestUpdated (info) {
-    if (info.url === LOADSTER_URL) {
-        return;
-    } else if (!requests[info.requestId]) {
-        requests[info.requestId] = {
-            timeStarted: new Date().getTime()
-        };
-    }
+    chrome.tabs.get(info.tabId, function (tab) {
+        if (tab.url) {
+            for (var i = 0; i < IGNORED_PREFIXES.length; i++) {
+                if (tab.url.indexOf(IGNORED_PREFIXES[i]) === 0) {
+                    return;
+                }
+            }
+        } else if (info.url === WORKBENCH_URL) {
+            return;
+        }
 
-    // Base64 encode the body parts if necessary
-    if (info.requestBody && info.requestBody.raw) {
-        for (var i = 0; i < info.requestBody.raw.length; i++) {
-            var part = info.requestBody.raw[i];
+        // Track the request start time if it's a new request
+        if (!requests[info.requestId]) {
+            requests[info.requestId] = {
+                timeStarted: new Date().getTime()
+            };
+        }
 
-            if (part.bytes) {
-                part.base64 = toBase64(part.bytes);
-            } else if (part.file) {
+        // Base64 encode the body parts if necessary
+        if (info.requestBody && info.requestBody.raw) {
+            for (var i = 0; i < info.requestBody.raw.length; i++) {
+                var part = info.requestBody.raw[i];
+
+                if (part.bytes) {
+                    part.base64 = toBase64(part.bytes);
+                } else if (part.file) {
+                }
             }
         }
-    }
 
-    // Copy properties
-    for (var prop in info) {
-        if (info.hasOwnProperty(prop)) {
-            requests[info.requestId][prop] = info[prop];
+        // Copy properties
+        for (var prop in info) {
+            if (info.hasOwnProperty(prop)) {
+                requests[info.requestId][prop] = info[prop];
+            }
         }
-    }
+    })
 };
 
 //
@@ -168,14 +184,14 @@ setInterval(function () {
                 var status = xhr.status;
 
                 if (status === 200 || status === 201) {
-                    console.log("Uploaded " + Object.keys(upload).length + " recording events to " + LOADSTER_URL);
+                    console.log("Uploaded " + Object.keys(upload).length + " recording events to " + WORKBENCH_URL);
                 } else {
-                    console.warn("Failed to upload " + Object.keys(upload).length + " recording events to " + LOADSTER_URL);
+                    console.warn("Failed to upload " + Object.keys(upload).length + " recording events to " + WORKBENCH_URL);
                 }
             }
         };
 
-        xhr.open("POST", LOADSTER_URL, true);
+        xhr.open("POST", WORKBENCH_URL, true);
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.send(JSON.stringify(upload));
 
