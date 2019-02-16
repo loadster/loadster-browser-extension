@@ -130,8 +130,8 @@ var filter = {
 // Listen to all types of events
 //
 chrome.webRequest.onBeforeRequest.addListener(requestUpdated, filter, ['blocking', 'requestBody']);
-chrome.webRequest.onBeforeSendHeaders.addListener(requestUpdated, filter, ['requestHeaders']);
-chrome.webRequest.onSendHeaders.addListener(requestUpdated, filter, ['requestHeaders']);
+chrome.webRequest.onBeforeSendHeaders.addListener(requestUpdated, filter, ['requestHeaders', 'extraHeaders']);
+chrome.webRequest.onSendHeaders.addListener(requestUpdated, filter, ['requestHeaders', 'extraHeaders']);
 chrome.webRequest.onHeadersReceived.addListener(headersReceived, filter, ['blocking', 'responseHeaders']);
 chrome.webRequest.onResponseStarted.addListener(requestUpdated, filter, ['responseHeaders']);
 chrome.webRequest.onCompleted.addListener(finishRequest, filter, ['responseHeaders']);
