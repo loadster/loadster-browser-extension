@@ -9,6 +9,12 @@ var IGNORED_PREFIXES = [
 var requests = {}; // Requests are stored here until they are uploaded
 var ports = []; // Listeners from the Loadster website that want to receive recording events
 
+function handleFirstRun (details) {
+    if(details.reason === 'install') {
+        localStorage["loadster.recording.enabled"] = "true";
+    }
+}
+
 //
 // Stores a request if we haven't seen it before; otherwise updates it.
 //
@@ -135,7 +141,7 @@ chrome.webRequest.onSendHeaders.addListener(requestUpdated, filter, ['requestHea
 chrome.webRequest.onHeadersReceived.addListener(headersReceived, filter, ['blocking', 'responseHeaders']);
 chrome.webRequest.onResponseStarted.addListener(requestUpdated, filter, ['responseHeaders']);
 chrome.webRequest.onCompleted.addListener(finishRequest, filter, ['responseHeaders']);
-
+chrome.runtime.onInstalled.addListener(handleFirstRun);
 //
 // Listen for messages from the Loadster dashboard
 //
