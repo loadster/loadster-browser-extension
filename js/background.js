@@ -1,16 +1,17 @@
 var WORKBENCH_URL = "http://localhost:1999/recording/events?type=chrome";
 var INTERVAL = 1000;
 
-var IGNORED_PREFIXES = [
+const IGNORED_PREFIXES = [
     "https://loadster.app",
     "https://speedway.app"
 ]
 
-var requests = {}; // Requests are stored here until they are uploaded
-var ports = []; // Listeners from the Loadster website that want to receive recording events
+let requests = {}; // Requests are stored here until they are uploaded
+let ports = []; // Listeners from the Loadster website that want to receive recording events
+let titles = {};
 
-function handleFirstRun (details) {
-    if(details.reason === 'install') {
+function handleFirstRun(details) {
+    if (details.reason === 'install') {
         localStorage["loadster.recording.enabled"] = "true";
     }
 }
@@ -18,50 +19,54 @@ function handleFirstRun (details) {
 //
 // Stores a request if we haven't seen it before; otherwise updates it.
 //
-function requestUpdated (info) {
-    chrome.tabs.get(info.tabId, function (tab) {
-        if (tab.url) {
-            for (var i = 0; i < IGNORED_PREFIXES.length; i++) {
-                if (tab.url.indexOf(IGNORED_PREFIXES[i]) === 0) {
+function requestUpdated(info) {
+    if (Math.sign(info.tabId) >= 0) {
+        chrome.tabs.get(info.tabId, function (tab) {
+            if (tab) {
+                if (tab.url) {
+                    for (var i = 0; i < IGNORED_PREFIXES.length; i++) {
+                        if (tab.url.indexOf(IGNORED_PREFIXES[i]) === 0) {
+                            return;
+                        }
+                    }
+                } else if (info.url === WORKBENCH_URL) {
                     return;
                 }
-            }
-        } else if (info.url === WORKBENCH_URL) {
-            return;
-        }
 
-        // Track the request start time if it's a new request
-        if (!requests[info.requestId]) {
-            requests[info.requestId] = {
-                timeStarted: new Date().getTime()
-            };
-        }
+                // Track the request start time if it's a new request
+                if (!requests[info.requestId]) {
+                    requests[info.requestId] = {
+                        timeStarted: new Date().getTime()
+                    };
+                }
 
-        // Base64 encode the body parts if necessary
-        if (info.requestBody && info.requestBody.raw) {
-            for (var i = 0; i < info.requestBody.raw.length; i++) {
-                var part = info.requestBody.raw[i];
+                // Base64 encode the body parts if necessary
+                if (info.requestBody && info.requestBody.raw) {
+                    for (var i = 0; i < info.requestBody.raw.length; i++) {
+                        var part = info.requestBody.raw[i];
 
-                if (part.bytes) {
-                    part.base64 = toBase64(part.bytes);
-                } else if (part.file) {
+                        if (part.bytes) {
+                            part.base64 = toBase64(part.bytes);
+                        } else if (part.file) {
+                        }
+                    }
+                }
+
+                // Copy properties
+                for (var prop in info) {
+                    if (info.hasOwnProperty(prop)) {
+                        requests[info.requestId][prop] = info[prop];
+                    }
                 }
             }
-        }
-
-        // Copy properties
-        for (var prop in info) {
-            if (info.hasOwnProperty(prop)) {
-                requests[info.requestId][prop] = info[prop];
-            }
-        }
-    })
+        })
+    }
 };
 
 //
 // Updates a request and checks if it's being redirected.
 // 
-function headersReceived (info) {
+function headersReceived(info) {
     requestUpdated(info);
 
     if (info.statusCode == 301 || info.statusCode == 302) {
@@ -73,7 +78,7 @@ function headersReceived (info) {
 // Clones a request when it is redirected, marking the redirected one as complete and
 // keeping the original for further updates.
 //
-function requestRedirected (info) {
+function requestRedirected(info) {
     var request = requests[info.requestId];
     var redirected = {};
 
@@ -95,7 +100,7 @@ function requestRedirected (info) {
 //
 // Finishes a normal request, marking it completed.
 //
-function finishRequest (info) {
+function finishRequest(info) {
     info.completed = true;
     info.timeCompleted = new Date().getTime();
 
@@ -105,14 +110,14 @@ function finishRequest (info) {
 //
 // Checks if recording is enabled
 //
-function isEnabled () {
+function isEnabled() {
     return localStorage["loadster.recording.enabled"] == "true";
 }
 
 //
 // Reads an array buffer into a Base64 string
 //
-function toBase64 (buffer) {
+function toBase64(buffer) {
     var binary = '';
     var bytes = new Uint8Array(buffer);
     var length = bytes.byteLength;
@@ -124,24 +129,72 @@ function toBase64 (buffer) {
     return window.btoa(binary);
 }
 
+function indicateRecording(tick) {
+    // black circle large  2B24
+    // black circle medium 25CF
+    // 🔴 1F534
+    const iconA = String.fromCodePoint(parseInt('25CF', 16));
+    // white circle
+    const iconB = String.fromCodePoint(parseInt('25CB', 16));
+    const tabs = [].concat(...ports.map(port => port.tabIds));
+
+    tabs.forEach(id => {
+        chrome.tabs.get(id, (tab) => {
+            if (titles[tab.id]) {
+                const title = `${((tick % 2 === 0) ? iconA : iconB)} ${titles[tab.id]}`;
+                const code = `document.title = '${title}'`;
+                chrome.tabs.executeScript(id, { code });
+            }
+        });
+    });
+}
+
+function saveTitle(tabId, changeInfo, tab) {
+    if (changeInfo.status === 'complete' && !titles[tabId]) {
+        titles[tabId] = tab.title;
+    }
+}
+
+function handleCreatedTab(created, port) {
+    if (port.tabIds.some(id => (id === created.openerTabId && id !== created.id))) {
+        port.tabIds.push(created.id);
+    }
+}
+
+function handleRemovedTab(tabId, port) {
+    const index = port.tabIds.indexOf(tabId);
+    if (index !== -1) {
+        port.tabIds.splice(index, 1);
+    }
+    if (!port.tabIds.length) {
+        port.postMessage({ type: 'RecordingStop', data: 'No pages open' });
+    }
+}
+
+function handleCreatedRootTab(tab, port) {
+    port.tabIds.push(tab.id);
+
+    chrome.tabs.onUpdated.addListener(saveTitle);
+    chrome.tabs.onCreated.addListener((created) => handleCreatedTab(created, port));
+    chrome.tabs.onRemoved.addListener((tabId, info) => handleRemovedTab(tabId, port));
+}
+
 //
 // Create a catch-all filter so we see all types of content
 //
-var filter = {
+const filter = {
     urls: ["*://*/*"],
     types: ["main_frame", "sub_frame", "stylesheet", "script", "image", "object", "xmlhttprequest", "other"]
 };
-
-//
-// Listen to all types of events
-//
 chrome.webRequest.onBeforeRequest.addListener(requestUpdated, filter, ['blocking', 'requestBody']);
 chrome.webRequest.onBeforeSendHeaders.addListener(requestUpdated, filter, ['requestHeaders', 'extraHeaders']);
 chrome.webRequest.onSendHeaders.addListener(requestUpdated, filter, ['requestHeaders', 'extraHeaders']);
 chrome.webRequest.onHeadersReceived.addListener(headersReceived, filter, ['blocking', 'responseHeaders']);
 chrome.webRequest.onResponseStarted.addListener(requestUpdated, filter, ['responseHeaders']);
 chrome.webRequest.onCompleted.addListener(finishRequest, filter, ['responseHeaders']);
+
 chrome.runtime.onInstalled.addListener(handleFirstRun);
+
 //
 // Listen for messages from the Loadster dashboard
 //
@@ -149,11 +202,20 @@ chrome.runtime.onConnectExternal.addListener(function (port) {
     console.assert(port.name === 'loadster-recorder', 'Only accepting incoming messages from loadster-recorder')
 
     console.log('Adding port ', port);
+    port.tabIds = [];
     ports.push(port);
+    let tick = 0;
 
     port.onMessage.addListener(function (msg) {
         if (msg.type === 'Ping') {
-            port.postMessage({type: 'Pong', enabled: isEnabled()})
+            indicateRecording(tick);
+            port.postMessage({ type: 'Pong', enabled: isEnabled() });
+            tick++;
+        } else if (msg.type === 'Url') {
+            chrome.tabs.create({
+                url: msg.value,
+                active: true,
+            }, (tab) => handleCreatedRootTab(tab, port));
         } else {
             console.log('got unexpected message: ', msg);
         }
@@ -162,7 +224,17 @@ chrome.runtime.onConnectExternal.addListener(function (port) {
     port.onDisconnect.addListener(function () {
         console.log('Removing port ', port);
 
+        // restore document.title...
+        port.tabIds.forEach(id => {
+            
+            if (titles[id]) {
+                let code = `document.title = "${titles[id]}";`;
+                chrome.tabs.executeScript(id, { code });
+                delete titles[id];
+            }
+        });
         ports.splice(ports.indexOf(port, 1));
+        tick = 0;
     })
 })
 
@@ -204,7 +276,14 @@ setInterval(function () {
         console.log('Sending recording events to ' + ports.length + ' port(s)')
 
         ports.forEach(function (port) {
-            port.postMessage({type: "RecordingEvents", data: upload});
+            const filtered = Object.keys(upload)
+                .filter(key => port.tabIds.includes(upload[key].tabId))
+                .reduce((obj, key) => ({
+                    ...obj,
+                    [key]: upload[key]
+                }), {});
+
+            port.postMessage({ type: "RecordingEvents", data: filtered });
         });
     }
 }, INTERVAL);
