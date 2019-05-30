@@ -145,7 +145,9 @@ function indicateRecording(tick) {
         chrome.tabs.get(id, (tab) => {
             if (tab.status === 'complete' && titles[tab.id]) {
                 const title = `${((tick % 2 === 0) ? iconA : iconB)} ${titles[tab.id]}`;
-                const code = `document.title = '${title}'`;
+                const escaped = title.replace('\'', '\\\'');
+                const code = `document.title = '${escaped}'`;
+
                 chrome.tabs.executeScript(id, { code });
             }
         });
