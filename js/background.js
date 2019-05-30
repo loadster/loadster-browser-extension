@@ -80,21 +80,24 @@ function headersReceived(info) {
 //
 function requestRedirected(info) {
     var request = requests[info.requestId];
-    var redirected = {};
 
-    for (var prop in request) {
-        if (request.hasOwnProperty(prop)) {
-            redirected[prop] = request[prop];
+    if (request) {
+        var redirected = {};
+
+        for (var prop in request) {
+            if (request.hasOwnProperty(prop)) {
+                redirected[prop] = request[prop];
+            }
         }
+        
+        request.timeStarted = new Date().getTime();
+
+        redirected.requestId = request.requestId + '_' + Math.round(Math.random() * 1000000);
+        redirected.completed = true;
+        redirected.timeCompleted = new Date().getTime();
+
+        requests[redirected.requestId] = redirected;
     }
-
-    request.timeStarted = new Date().getTime();
-
-    redirected.requestId = request.requestId + '_' + Math.round(Math.random() * 1000000);
-    redirected.completed = true;
-    redirected.timeCompleted = new Date().getTime();
-
-    requests[redirected.requestId] = redirected;
 };
 
 //
@@ -140,7 +143,7 @@ function indicateRecording(tick) {
 
     tabs.forEach(id => {
         chrome.tabs.get(id, (tab) => {
-            if (titles[tab.id]) {
+            if (tab.status === 'complete' && titles[tab.id]) {
                 const title = `${((tick % 2 === 0) ? iconA : iconB)} ${titles[tab.id]}`;
                 const code = `document.title = '${title}'`;
                 chrome.tabs.executeScript(id, { code });
@@ -150,7 +153,7 @@ function indicateRecording(tick) {
 }
 
 function saveTitle(tabId, changeInfo, tab) {
-    if (changeInfo.status === 'complete' && !titles[tabId]) {
+    if (changeInfo.status === 'complete') {
         titles[tabId] = tab.title;
     }
 }
@@ -226,14 +229,15 @@ chrome.runtime.onConnectExternal.addListener(function (port) {
 
         // restore document.title...
         port.tabIds.forEach(id => {
-            
+
             if (titles[id]) {
                 let code = `document.title = "${titles[id]}";`;
                 chrome.tabs.executeScript(id, { code });
                 delete titles[id];
             }
         });
-        ports.splice(ports.indexOf(port, 1));
+        ports.splice(ports.indexOf(port), 1);
+
         tick = 0;
     })
 })
