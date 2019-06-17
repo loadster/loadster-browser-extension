@@ -15,16 +15,26 @@
     "default_popup": "popup.html"
   },
   "background": {
-    "scripts": ["js/background.js"]
+    "scripts": [
+      "js/browser-polyfill.min.js",
+      "js/background.js"
+    ]
   },
+  "content_scripts": [
+    {
+      "matches": ["*://localhost/*", "https://loadster.app/*", "https://speedway.app/*"],
+      "js": [
+        "js/browser-polyfill.min.js",
+        "js/content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
   "permissions": [
     "activeTab",
     "storage",
     "webRequest",
     "webRequestBlocking",
     "*://*/*"
-  ],
-  "externally_connectable": {
-    "matches": ["*://localhost/*", "https://loadster.app/*", "https://speedway.app/*"]
-  }
+  ]
 }

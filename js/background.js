@@ -19,47 +19,48 @@ function handleFirstRun(details) {
 //
 // Stores a request if we haven't seen it before; otherwise updates it.
 //
-function requestUpdated(info) {
+async function requestUpdated(info) {
     if (Math.sign(info.tabId) >= 0) {
-        chrome.tabs.get(info.tabId, function (tab) {
-            if (tab) {
-                if (tab.url) {
-                    for (var i = 0; i < IGNORED_PREFIXES.length; i++) {
-                        if (tab.url.indexOf(IGNORED_PREFIXES[i]) === 0) {
-                            return;
-                        }
-                    }
-                } else if (info.url === WORKBENCH_URL) {
-                    return;
-                }
-
-                // Track the request start time if it's a new request
-                if (!requests[info.requestId]) {
-                    requests[info.requestId] = {
-                        timeStarted: new Date().getTime()
-                    };
-                }
-
-                // Base64 encode the body parts if necessary
-                if (info.requestBody && info.requestBody.raw) {
-                    for (var i = 0; i < info.requestBody.raw.length; i++) {
-                        var part = info.requestBody.raw[i];
-
-                        if (part.bytes) {
-                            part.base64 = toBase64(part.bytes);
-                        } else if (part.file) {
-                        }
+        try {
+            const tab = await browser.tabs.get(info.tabId);
+            if (tab.url) {
+                for (var i = 0; i < IGNORED_PREFIXES.length; i++) {
+                    if (tab.url.indexOf(IGNORED_PREFIXES[i]) === 0) {
+                        return;
                     }
                 }
+            } else if (info.url === WORKBENCH_URL) {
+                return;
+            }
 
-                // Copy properties
-                for (var prop in info) {
-                    if (info.hasOwnProperty(prop)) {
-                        requests[info.requestId][prop] = info[prop];
+            // Track the request start time if it's a new request
+            if (!requests[info.requestId]) {
+                requests[info.requestId] = {
+                    timeStarted: new Date().getTime()
+                };
+            }
+
+            // Base64 encode the body parts if necessary
+            if (info.requestBody && info.requestBody.raw) {
+                for (var i = 0; i < info.requestBody.raw.length; i++) {
+                    var part = info.requestBody.raw[i];
+
+                    if (part.bytes) {
+                        part.base64 = toBase64(part.bytes);
+                    } else if (part.file) {
                     }
                 }
             }
-        })
+
+            // Copy properties
+            for (var prop in info) {
+                if (info.hasOwnProperty(prop)) {
+                    requests[info.requestId][prop] = info[prop];
+                }
+            }
+        } catch (err) {
+            console.error(err);
+        }
     }
 };
 
@@ -89,7 +90,7 @@ function requestRedirected(info) {
                 redirected[prop] = request[prop];
             }
         }
-        
+
         request.timeStarted = new Date().getTime();
 
         redirected.requestId = request.requestId + '_' + Math.round(Math.random() * 1000000);
@@ -142,13 +143,13 @@ function indicateRecording(tick) {
     const tabs = [].concat(...ports.map(port => port.tabIds));
 
     tabs.forEach(id => {
-        chrome.tabs.get(id, (tab) => {
+        browser.tabs.get(id).then(tab => {
             if (tab.status === 'complete' && titles[tab.id]) {
                 const title = `${((tick % 2 === 0) ? iconA : iconB)} ${titles[tab.id]}`;
                 const escaped = title.replace('\'', '\\\'');
                 const code = `document.title = '${escaped}'`;
 
-                chrome.tabs.executeScript(id, { code });
+                browser.tabs.executeScript(id, { code });
             }
         });
     });
@@ -179,9 +180,9 @@ function handleRemovedTab(tabId, port) {
 function handleCreatedRootTab(tab, port) {
     port.tabIds.push(tab.id);
 
-    chrome.tabs.onUpdated.addListener(saveTitle);
-    chrome.tabs.onCreated.addListener((created) => handleCreatedTab(created, port));
-    chrome.tabs.onRemoved.addListener((tabId, info) => handleRemovedTab(tabId, port));
+    browser.tabs.onUpdated.addListener(saveTitle);
+    browser.tabs.onCreated.addListener((created) => handleCreatedTab(created, port));
+    browser.tabs.onRemoved.addListener((tabId, info) => handleRemovedTab(tabId, port));
 }
 
 //
@@ -191,19 +192,19 @@ const filter = {
     urls: ["*://*/*"],
     types: ["main_frame", "sub_frame", "stylesheet", "script", "image", "object", "xmlhttprequest", "other"]
 };
-chrome.webRequest.onBeforeRequest.addListener(requestUpdated, filter, ['blocking', 'requestBody']);
-chrome.webRequest.onBeforeSendHeaders.addListener(requestUpdated, filter, ['requestHeaders', 'extraHeaders']);
-chrome.webRequest.onSendHeaders.addListener(requestUpdated, filter, ['requestHeaders', 'extraHeaders']);
-chrome.webRequest.onHeadersReceived.addListener(headersReceived, filter, ['blocking', 'responseHeaders']);
-chrome.webRequest.onResponseStarted.addListener(requestUpdated, filter, ['responseHeaders']);
-chrome.webRequest.onCompleted.addListener(finishRequest, filter, ['responseHeaders']);
+browser.webRequest.onBeforeRequest.addListener(requestUpdated, filter, ['blocking', 'requestBody']);
+browser.webRequest.onBeforeSendHeaders.addListener(requestUpdated, filter, ['requestHeaders']);
+browser.webRequest.onSendHeaders.addListener(requestUpdated, filter, ['requestHeaders']);
+browser.webRequest.onHeadersReceived.addListener(headersReceived, filter, ['blocking', 'responseHeaders']);
+browser.webRequest.onResponseStarted.addListener(requestUpdated, filter, ['responseHeaders']);
+browser.webRequest.onCompleted.addListener(finishRequest, filter, ['responseHeaders']);
 
-chrome.runtime.onInstalled.addListener(handleFirstRun);
+browser.runtime.onInstalled.addListener(handleFirstRun);
 
 //
 // Listen for messages from the Loadster dashboard
 //
-chrome.runtime.onConnectExternal.addListener(function (port) {
+browser.runtime.onConnect.addListener(function (port) {
     console.assert(port.name === 'loadster-recorder', 'Only accepting incoming messages from loadster-recorder')
 
     console.log('Adding port ', port);
@@ -211,16 +212,17 @@ chrome.runtime.onConnectExternal.addListener(function (port) {
     ports.push(port);
     let tick = 0;
 
-    port.onMessage.addListener(function (msg) {
+    port.onMessage.addListener(async function (msg) {
         if (msg.type === 'Ping') {
             indicateRecording(tick);
             port.postMessage({ type: 'Pong', enabled: isEnabled() });
             tick++;
         } else if (msg.type === 'Url') {
-            chrome.tabs.create({
+            const tab = await browser.tabs.create({
                 url: msg.value,
                 active: true,
-            }, (tab) => handleCreatedRootTab(tab, port));
+            });
+            handleCreatedRootTab(tab, port);
         } else {
             console.log('got unexpected message: ', msg);
         }
@@ -234,7 +236,7 @@ chrome.runtime.onConnectExternal.addListener(function (port) {
 
             if (titles[id]) {
                 let code = `document.title = "${titles[id]}";`;
-                chrome.tabs.executeScript(id, { code });
+                browser.tabs.executeScript(id, { code });
                 delete titles[id];
             }
         });
