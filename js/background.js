@@ -41,10 +41,11 @@ async function requestUpdated(info) {
             }
 
             // Base64 encode the body parts if necessary
+            // TODO recording file uploads. consider to use FileReader here
             if (info.requestBody && info.requestBody.raw) {
                 for (var i = 0; i < info.requestBody.raw.length; i++) {
                     var part = info.requestBody.raw[i];
-
+                    
                     if (part.bytes) {
                         part.base64 = toBase64(part.bytes);
                     } else if (part.file) {
