@@ -9,9 +9,8 @@ const manifest = browser.runtime.getManifest();
 
 let requests = {}; // Requests are stored here until they are uploaded
 let ports = []; // Listeners from the Loadster website that want to receive recording events
-let titles = {};
 
-function handleFirstRun(details) {
+function handleFirstRun (details) {
     if (details.reason === 'install') {
         localStorage["loadster.recording.enabled"] = "true";
     }
@@ -20,7 +19,7 @@ function handleFirstRun(details) {
 //
 // Stores a request if we haven't seen it before; otherwise updates it.
 //
-async function requestUpdated(info) {
+async function requestUpdated (info) {
     if (Math.sign(info.tabId) >= 0) {
         try {
             const tab = await browser.tabs.get(info.tabId);
@@ -69,7 +68,7 @@ async function requestUpdated(info) {
 //
 // Updates a request and checks if it's being redirected.
 // 
-function headersReceived(info) {
+function headersReceived (info) {
     requestUpdated(info);
 
     if (info.statusCode == 301 || info.statusCode == 302) {
@@ -81,7 +80,7 @@ function headersReceived(info) {
 // Clones a request when it is redirected, marking the redirected one as complete and
 // keeping the original for further updates.
 //
-function requestRedirected(info) {
+function requestRedirected (info) {
     var request = requests[info.requestId];
 
     if (request) {
@@ -106,7 +105,7 @@ function requestRedirected(info) {
 //
 // Finishes a normal request, marking it completed.
 //
-function finishRequest(info) {
+function finishRequest (info) {
     info.completed = true;
     info.timeCompleted = new Date().getTime();
 
@@ -116,14 +115,14 @@ function finishRequest(info) {
 //
 // Checks if recording is enabled
 //
-function isEnabled() {
+function isEnabled () {
     return localStorage["loadster.recording.enabled"] == "true";
 }
 
 //
 // Reads an array buffer into a Base64 string
 //
-function toBase64(buffer) {
+function toBase64 (buffer) {
     var binary = '';
     var bytes = new Uint8Array(buffer);
     var length = bytes.byteLength;
@@ -135,54 +134,40 @@ function toBase64(buffer) {
     return window.btoa(binary);
 }
 
-function indicateRecording(tick) {
-    // black circle large  2B24
-    // black circle medium 25CF
-    // 🔴 1F534
-    const iconA = String.fromCodePoint(parseInt('25CF', 16));
-    // white circle
-    const iconB = String.fromCodePoint(parseInt('25CB', 16));
-    const tabs = [].concat(...ports.map(port => port.tabIds));
-
-    tabs.forEach(id => {
-        browser.tabs.get(id).then(tab => {
-            if (tab.status === 'complete' && titles[tab.id]) {
-                const title = `${((tick % 2 === 0) ? iconA : iconB)} ${titles[tab.id]}`;
-                const escaped = title.replace('\'', '\\\'');
-                const code = `document.title = '${escaped}'`;
-
-                browser.tabs.executeScript(id, { code });
-            }
+function startBlinkingTitle (tabId, port) {
+    if (port.tabIds.includes(tabId)) {
+        browser.tabs.executeScript(tabId, {
+            code: `window['loadster_blink_title'] = true;`
         });
-    });
-}
-
-function saveTitle(tabId, changeInfo, tab) {
-    if (changeInfo.status === 'complete') {
-        titles[tabId] = tab.title;
     }
 }
 
-function handleCreatedTab(created, port) {
+function stopBlinkingTitle (tabId) {
+    browser.tabs.executeScript(tabId, {
+        code: `window['loadster_blink_title'] = false;`
+    });
+}
+
+function handleCreatedTab (created, port) {
     if (port.tabIds.some(id => (id === created.openerTabId && id !== created.id))) {
         port.tabIds.push(created.id);
     }
 }
 
-function handleRemovedTab(tabId, port) {
+function handleRemovedTab (tabId, port) {
     const index = port.tabIds.indexOf(tabId);
     if (index !== -1) {
         port.tabIds.splice(index, 1);
     }
     if (!port.tabIds.length) {
-        port.postMessage({ type: 'RecordingStop', data: 'No pages open' });
+        port.postMessage({type: 'RecordingStop', data: 'No pages open'});
     }
 }
 
-function handleCreatedRootTab(tab, port) {
+function handleCreatedRootTab (tab, port) {
     port.tabIds.push(tab.id);
 
-    browser.tabs.onUpdated.addListener(saveTitle);
+    browser.tabs.onUpdated.addListener((tabId) => startBlinkingTitle(tabId, port));
     browser.tabs.onCreated.addListener((created) => handleCreatedTab(created, port));
     browser.tabs.onRemoved.addListener((tabId, info) => handleRemovedTab(tabId, port));
 }
@@ -216,8 +201,7 @@ browser.runtime.onConnect.addListener(function (port) {
 
     port.onMessage.addListener(async function (msg) {
         if (msg.type === 'Ping') {
-            indicateRecording(tick);
-            port.postMessage({ type: 'Pong', enabled: isEnabled() });
+            port.postMessage({type: 'Pong', enabled: isEnabled()});
             tick++;
         } else if (msg.type === 'Url') {
             const tab = await browser.tabs.create({
@@ -233,14 +217,8 @@ browser.runtime.onConnect.addListener(function (port) {
     port.onDisconnect.addListener(function () {
         console.log('Removing port ', port);
 
-        // restore document.title...
         port.tabIds.forEach(id => {
-
-            if (titles[id]) {
-                let code = `document.title = "${titles[id]}";`;
-                browser.tabs.executeScript(id, { code });
-                delete titles[id];
-            }
+            stopBlinkingTitle(id);
         });
         ports.splice(ports.indexOf(port), 1);
 
@@ -261,7 +239,7 @@ browser.tabs.onActivated.addListener(async function (activeInfo) {
             if (!msg.status) {
                 manifest.content_scripts.forEach(data => {
                     data.js.forEach(script => {
-                        browser.tabs.executeScript(tabId, { file: script });
+                        browser.tabs.executeScript(tabId, {file: script});
                     });
                 });
             }
@@ -314,7 +292,7 @@ setInterval(function () {
                     [key]: upload[key]
                 }), {});
 
-            port.postMessage({ type: "RecordingEvents", data: filtered });
+            port.postMessage({type: "RecordingEvents", data: filtered});
         });
     }
 }, INTERVAL);

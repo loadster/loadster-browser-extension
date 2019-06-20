@@ -28,6 +28,13 @@
         "js/content.js"
       ],
       "run_at": "document_start"
+    },
+    {
+      "matches": ["*://*/*"],
+      "js": [
+        "js/blinker.js"
+      ],
+      "run_at": "document_end"
     }
   ],
   "permissions": [
