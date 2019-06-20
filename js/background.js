@@ -5,6 +5,7 @@ const IGNORED_PREFIXES = [
     "https://loadster.app",
     "https://speedway.app"
 ]
+const manifest = browser.runtime.getManifest();
 
 let requests = {}; // Requests are stored here until they are uploaded
 let ports = []; // Listeners from the Loadster website that want to receive recording events
@@ -45,7 +46,7 @@ async function requestUpdated(info) {
             if (info.requestBody && info.requestBody.raw) {
                 for (var i = 0; i < info.requestBody.raw.length; i++) {
                     var part = info.requestBody.raw[i];
-                    
+
                     if (part.bytes) {
                         part.base64 = toBase64(part.bytes);
                     } else if (part.file) {
@@ -245,7 +246,28 @@ browser.runtime.onConnect.addListener(function (port) {
 
         tick = 0;
     })
-})
+});
+
+browser.tabs.onActivated.addListener(async function (activeInfo) {
+    const tabId = activeInfo.tabId;
+    const tabInfo = await browser.tabs.get(tabId);
+
+    if (tabInfo.status === 'complete' && tabInfo.url && tabInfo.url.match(/localhost|loadster.app|speedway.app/g)) {
+        // check if content_script loaded
+        chrome.tabs.sendMessage(tabId, {
+            text: 'loadster_content_script_loaded'
+        }, (msg = {}) => {
+            // only inject scripts if needed
+            if (!msg.status) {
+                manifest.content_scripts.forEach(data => {
+                    data.js.forEach(script => {
+                        browser.tabs.executeScript(tabId, { file: script });
+                    });
+                });
+            }
+        });
+    }
+});
 
 //
 // Upload events to Loadster at set intervals

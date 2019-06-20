@@ -8,9 +8,15 @@ const bridgeEvents = {
 };
 let port = null;
 
+browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.text === 'loadster_content_script_loaded') {
+        sendResponse({ status: true });
+    }
+});
+
 // expose version to the webpage scope
 const script = document.createElement('script');
-script.textContent = `var loadster_extension_version = ${ browser.runtime.getManifest().version };`;
+script.textContent = `var loadster_extension_version = ${browser.runtime.getManifest().version};`;
 (document.head || document.documentElement).appendChild(script);
 script.remove();
 
