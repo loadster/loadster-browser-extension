@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Loadster Recorder",
   "description": "Create load test scripts to run in Loadster.",
-  "version": "2.4",
+  "version": "2.5",
   "icons": {
     "16": "images/icon-16x16.png",
     "32": "images/icon-32x32.png",
@@ -15,16 +15,34 @@
     "default_popup": "popup.html"
   },
   "background": {
-    "scripts": ["js/background.js"]
+    "scripts": [
+      "js/browser-polyfill.min.js",
+      "js/background.js"
+    ]
   },
+  "content_scripts": [
+    {
+      "matches": ["*://localhost/*", "https://loadster.app/*", "https://speedway.app/*"],
+      "js": [
+        "js/browser-polyfill.min.js",
+        "js/content.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["*://*/*"],
+      "js": [
+        "js/browser-polyfill.min.js",
+        "js/blinker.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
   "permissions": [
     "activeTab",
     "storage",
     "webRequest",
     "webRequestBlocking",
     "*://*/*"
-  ],
-  "externally_connectable": {
-    "matches": ["*://localhost/*", "https://loadster.app/*", "https://speedway.app/*"]
-  }
+  ]
 }
