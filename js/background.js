@@ -134,17 +134,19 @@ function toBase64 (buffer) {
     return window.btoa(binary);
 }
 
-function startBlinkingTitle (tabId, port) {
-    if (port.tabIds.includes(tabId)) {
-        browser.tabs.executeScript(tabId, {
-            code: `window['loadster_blink_title'] = true;`
+function blinkTitle (tick, port) {
+    port.tabIds.forEach(id => {
+        browser.tabs.sendMessage(id, {
+            type: 'loadster_blink_title',
+            value: tick
         });
-    }
+    });
 }
 
 function stopBlinkingTitle (tabId) {
-    browser.tabs.executeScript(tabId, {
-        code: `window['loadster_blink_title'] = false;`
+    browser.tabs.sendMessage(tabId, {
+        type: 'loadster_blink_title',
+        value: null
     });
 }
 
@@ -167,7 +169,6 @@ function handleRemovedTab (tabId, port) {
 function handleCreatedRootTab (tab, port) {
     port.tabIds.push(tab.id);
 
-    browser.tabs.onUpdated.addListener((tabId) => startBlinkingTitle(tabId, port));
     browser.tabs.onCreated.addListener((created) => handleCreatedTab(created, port));
     browser.tabs.onRemoved.addListener((tabId, info) => handleRemovedTab(tabId, port));
 }
@@ -201,6 +202,7 @@ browser.runtime.onConnect.addListener(function (port) {
 
     port.onMessage.addListener(async function (msg) {
         if (msg.type === 'Ping') {
+            blinkTitle(tick, port);
             port.postMessage({type: 'Pong', enabled: isEnabled()});
             tick++;
         } else if (msg.type === 'Url') {
@@ -232,18 +234,19 @@ browser.tabs.onActivated.addListener(async function (activeInfo) {
 
     if (tabInfo.status === 'complete' && tabInfo.url && tabInfo.url.match(/localhost|loadster.app|speedway.app/g)) {
         // check if content_script loaded
-        chrome.tabs.sendMessage(tabId, {
-            text: 'loadster_content_script_loaded'
-        }, (msg = {}) => {
-            // only inject scripts if needed
-            if (!msg.status) {
-                manifest.content_scripts.forEach(data => {
-                    data.js.forEach(script => {
-                        browser.tabs.executeScript(tabId, {file: script});
-                    });
+        try {
+            await browser.tabs.sendMessage(tabId, {
+                text: 'loadster_content_script_loaded'
+            });
+        } catch (err) {
+            console.log(err.message); // Could not establish connection. Receiving end does not exist.
+            
+            manifest.content_scripts.forEach(data => {
+                data.js.forEach(script => {
+                    browser.tabs.executeScript(tabId, {file: script});
                 });
-            }
-        });
+            });
+        }
     }
 });
 

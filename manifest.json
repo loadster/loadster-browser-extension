@@ -32,9 +32,10 @@
     {
       "matches": ["*://*/*"],
       "js": [
+        "js/browser-polyfill.min.js",
         "js/blinker.js"
       ],
-      "run_at": "document_end"
+      "run_at": "document_idle"
     }
   ],
   "permissions": [
