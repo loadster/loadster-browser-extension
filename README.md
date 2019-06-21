@@ -1,15 +1,15 @@
-# Loadster Chrome Extension
+# Loadster Recorder Browser Extension
 
-This is the source code for the [Loadster Recorder](https://chrome.google.com/webstore/detail/loadster-recorder/bkhfnmahbfjemfpgehoolkhhdhbidaan) extension in the Chrome Web Store.
+This is the source code for the Loadster Recorder extension in the [Chrome Web Store](https://chrome.google.com/webstore/detail/loadster-recorder/bkhfnmahbfjemfpgehoolkhhdhbidaan) and coming soon to the Firefox Add-ons Directory.
 
-Its purpose is to assist you with load test script creation by recording your browser activity (when enabled) and sharing it with your locally running instance of Loadster Workbench.
+Its purpose is to assist you with load test script creation by recording your browser activity (when enabled) and sharing it with [Loadster](https://loadster.app).
 
-Loadster Workbench then collates the browser events into a Loadster script, which you can then edit and play back in Loadster Workbench. Once you're satisfied with your script, you can launch a load test with hundreds or thousands of current users running your script simultaneously.
+Loadster then collates the browser events into a load test script, which you can then edit and play back repeatedly. Once you're satisfied with your script, launch a load test with hundreds or thousands of current users running your script simultaneously!
 
-To learn more about Loadster and load testing in general, check out [www.loadsterperformance.com](https://www.loadsterperformance.com).
+To learn more about Loadster and load testing in general, check out [Loadster](https://loadster.app).
 
 ## About this project
 
-While Loadster Workbench is a commercial product, our Chrome extension is open source under the [Apache License](LICENSE). We've put it on GitHub because we want you to be able to freely inspect the extension's source code and understand how it works.
+While Loadster is a commercial product, our browser extensions are open source under the [Apache License](LICENSE). We've put the source code on GitHub because we want you to be able to freely inspect the extension's source code and understand how it works.
 
-If you have any questions about the extension or its licensing, please contact [info@loadsterperformance.com](mailto:info@loadsterperformance.com).
+If you have any questions about the extension or its licensing, please contact [info@loadster.app](mailto:info@loadster.app).
