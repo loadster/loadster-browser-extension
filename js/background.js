@@ -68,10 +68,10 @@ async function requestUpdated (info) {
 //
 // Updates a request and checks if it's being redirected.
 // 
-function headersReceived (info) {
-    requestUpdated(info);
+async function headersReceived (info) {
+    await requestUpdated(info)
 
-    if (info.statusCode == 301 || info.statusCode == 302) {
+    if (info.statusCode === 301 || info.statusCode === 302) {
         requestRedirected(info);
     }
 };
@@ -105,11 +105,11 @@ function requestRedirected (info) {
 //
 // Finishes a normal request, marking it completed.
 //
-function finishRequest (info) {
+async function finishRequest (info) {
+    await requestUpdated(info);
+
     info.completed = true;
     info.timeCompleted = new Date().getTime();
-
-    requestUpdated(info);
 };
 
 //
@@ -240,7 +240,7 @@ browser.tabs.onActivated.addListener(async function (activeInfo) {
             });
         } catch (err) {
             console.log(err.message); // Could not establish connection. Receiving end does not exist.
-            
+
             manifest.content_scripts.forEach(data => {
                 data.js.forEach(script => {
                     browser.tabs.executeScript(tabId, {file: script});
