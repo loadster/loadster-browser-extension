@@ -107,9 +107,11 @@ function requestRedirected (info) {
 //
 async function finishRequest (info) {
     await requestUpdated(info);
-
-    info.completed = true;
-    info.timeCompleted = new Date().getTime();
+    
+    if (info.requestId && requests[info.requestId]) {
+        requests[info.requestId].completed = true;
+        requests[info.requestId].timeCompleted = new Date().getTime();
+    }
 };
 
 //
@@ -255,7 +257,7 @@ browser.tabs.onActivated.addListener(async function (activeInfo) {
 //
 setInterval(function () {
     var upload = {};
-
+    
     for (var requestId in requests) {
         if (requests.hasOwnProperty(requestId)) {
             if (requests[requestId].completed) {
@@ -265,7 +267,7 @@ setInterval(function () {
             }
         }
     }
-
+    
     if (Object.keys(upload).length && isEnabled()) {
         var xhr = new XMLHttpRequest();
 
