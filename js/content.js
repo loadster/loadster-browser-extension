@@ -8,11 +8,7 @@ const bridgeEvents = {
 };
 let port = null;
 
-browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg.text === 'loadster_content_script_loaded') {
-        sendResponse({ status: true });
-    }
-});
+browser.runtime.onMessage.addListener((msg, sender) => new Promise((resolve) => resolve(true)));
 
 // expose version to the webpage scope
 const script = document.createElement('script');
@@ -47,6 +43,14 @@ window.addEventListener(bridgeEvents.CONNECT, (event) => {
     window.dispatchEvent(new CustomEvent(bridgeEvents.CONNECTED, { detail: createMessage({ version }) }));
 });
 
-window.addEventListener(bridgeEvents.STOP, (event) => port.disconnect());
+window.addEventListener(bridgeEvents.STOP, (event) => {
+    if (port) {
+        port.disconnect();
+    }
+});
 
-window.addEventListener(bridgeEvents.SEND, (event) => port.postMessage(event.detail));
+window.addEventListener(bridgeEvents.SEND, (event) => {
+    if (port) {
+        port.postMessage(event.detail);
+    }
+});
