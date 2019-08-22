@@ -183,8 +183,8 @@ const filter = {
     types: ["main_frame", "sub_frame", "stylesheet", "script", "image", "object", "xmlhttprequest", "other"]
 };
 browser.webRequest.onBeforeRequest.addListener(requestUpdated, filter, ['blocking', 'requestBody']);
-browser.webRequest.onBeforeSendHeaders.addListener(requestUpdated, filter, ['requestHeaders', 'extraHeaders']);
-browser.webRequest.onSendHeaders.addListener(requestUpdated, filter, ['requestHeaders', 'extraHeaders']);
+browser.webRequest.onBeforeSendHeaders.addListener(requestUpdated, filter, ['requestHeaders']);
+browser.webRequest.onSendHeaders.addListener(requestUpdated, filter, ['requestHeaders']);
 browser.webRequest.onHeadersReceived.addListener(headersReceived, filter, ['blocking', 'responseHeaders']);
 browser.webRequest.onResponseStarted.addListener(requestUpdated, filter, ['responseHeaders']);
 browser.webRequest.onCompleted.addListener(finishRequest, filter, ['responseHeaders']);
