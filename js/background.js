@@ -182,9 +182,12 @@ const filter = {
     urls: ["*://*/*"],
     types: ["main_frame", "sub_frame", "stylesheet", "script", "image", "object", "xmlhttprequest", "other"]
 };
+const isFirefox = typeof InstallTrigger !== 'undefined';
+const reqHeaders = [...(isFirefox ? [] : ['extraHeaders']), 'requestHeaders' ];
+
 browser.webRequest.onBeforeRequest.addListener(requestUpdated, filter, ['blocking', 'requestBody']);
-browser.webRequest.onBeforeSendHeaders.addListener(requestUpdated, filter, ['requestHeaders']);
-browser.webRequest.onSendHeaders.addListener(requestUpdated, filter, ['requestHeaders']);
+browser.webRequest.onBeforeSendHeaders.addListener(requestUpdated, filter, reqHeaders);
+browser.webRequest.onSendHeaders.addListener(requestUpdated, filter, reqHeaders);
 browser.webRequest.onHeadersReceived.addListener(headersReceived, filter, ['blocking', 'responseHeaders']);
 browser.webRequest.onResponseStarted.addListener(requestUpdated, filter, ['responseHeaders']);
 browser.webRequest.onCompleted.addListener(finishRequest, filter, ['responseHeaders']);
