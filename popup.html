@@ -22,65 +22,75 @@
         user-select: none !important;
         padding: 0;
         margin: 0;
-        width: 300px;
+        width: 250px;
+      }
+
+      .logo-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        padding: 10px;
       }
 
       .logo {
-        height: 50px;
-        background-image: url(images/logo-150x30.png);
+        width: 45%;
+        height: 35px;
         background-repeat: no-repeat;
-        background-position: 10px 10px;
+        background-position: center;
+        background-size: contain;
+      }
+
+      .logo#loadster {
+        height: 36px;
+      }
+
+      #loadster {
+        background-image: url(images/Loadster.png);
+      }
+      
+      #speedway {
+        background-image: url(images/Speedway.png);
       }
 
       .panel {
-        background: #eeeeee;
+        background: #2D2D2D;
         clear: both;
         margin: 0 0;
-        border-top: 1px solid #dddddd;
-        border-bottom: 1px solid #dddddd;
-        padding: 30px 0 22px 0;
-        width: 300px;
+        padding: 40px 0;
+        width: 100%;
       }
 
       .toggle {
-        width: 100px;
-        height: 40px;
-        margin: 0 auto 5px auto;
-        border: 1px solid #aaaaaa;
-        border-radius: 5px;
+        width: 140px;
+        height: 50px;
+        margin: auto;
+        border-radius: 25px;
         transition: all 150ms ease-in-out;
         cursor: pointer;
         position: relative;
         overflow: hidden;
+        background: rgba(32, 32, 32, 1);
       }
 
       .toggle .switch {
-        width: 55px;
-        height: 40px;
-        background: #bbbbbb;
-        border-radius: 4px;
+        width: 60%;
+        height: 100%;
         transition: all 150ms ease-in-out;
         position: relative;
-        background: linear-gradient(170deg, #dddddd 0%, #999999 100%);
-        box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.4);
       }
 
       .toggle .switch .bevel {
-        background: #bbbbbb;
+        background: #9AD6CE;
         position: absolute;
-        top: 2px;
-        right: 2px;
-        bottom: 2px;
-        left: 2px;
-        border-radius: 4px;
+        top: 4px;
+        right: 4px;
+        bottom: 4px;
+        left: 4px;
+        border-radius: 22px;
       }
 
-      .toggle.on {
-        background: #00bb00;
-      }
-
-      .toggle.off {
-        background: #bb3900;
+      .toggle.off .switch .bevel {
+        background: #808080;
       }
 
       .toggle.on .switch {
@@ -88,17 +98,20 @@
       }
 
       .toggle.off .switch {
-        margin-left: 45px;
+        margin-left: 40%;
       }
 
       #status {
         text-align: center;
-        font-size: 80%;
+        text-transform: uppercase;
+        font-size: 9px;
+        font-weight: bold;
+        color: #fff;
+        margin-top: 1em;
       }
 
       #status.on .on {
         display: inline;
-        color: #00bb00;
       }
 
       #status.on .off {
@@ -111,7 +124,7 @@
 
       #status.off .off {
         display: inline;
-        color: #bb3900;
+        color: red;
       }
 
       .description {
@@ -121,9 +134,11 @@
       }
 
       @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) { 
-        .logo {
-          background-image: url(images/logo-150x30@2x.png);
-          background-size: 150px 30px;
+        #loadster {
+          background-image: url(images/Loadster@2x.png);
+        }
+        #speedway {
+          background-image: url(images/Speedway@2x.png);
         }
       }
 
@@ -131,14 +146,22 @@
     <script src="js/popup.js"></script>
   </head>
   <body>
-    <div class="logo"></div>
+    
     <div class="panel">
       <div id="toggle" class="toggle on"><div id="switch" class="switch"><div class="bevel"></div></div></div>
-      <div id="status"><span class="on">Enabled</span><span class="off">Disabled</span></div>
+      <div id="status">Recording
+        <span class="on"> Enabled</span>
+        <span class="off"> Disabled</span>
+      </div>
     </div>
-    <div class="description">
+    <div class="logo-bar">
+      <div class="logo" id="loadster"></div>
+      <div class="logo" id="speedway"></div>
+    </div>
+    
+    <!-- <div class="description">
       When enabled, your browser traffic will be shared with Loadster for recording test scripts.
-    </div>
+    </div> -->
   </body>
 </html>
 
