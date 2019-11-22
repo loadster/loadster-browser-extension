@@ -80,17 +80,29 @@
       }
 
       .toggle .switch .bevel {
-        background: #9AD6CE;
+        background: rgb(154, 214, 206);
         position: absolute;
         top: 4px;
         right: 4px;
         bottom: 4px;
         left: 4px;
         border-radius: 22px;
+        transition: background 150ms ease-in-out;
+      }
+      .toggle.off .switch .bevel {
+        background: rgb(128, 128, 128);
       }
 
-      .toggle.off .switch .bevel {
-        background: #808080;
+      .toggle .switch .bevel:hover {
+        transition: background 100ms ease-out;
+      }
+
+      .toggle.on .switch .bevel:hover {
+        background: rgb(184, 244, 236);
+      }
+
+      .toggle.off .switch .bevel:hover {
+        background: rgb(158, 158, 158);
       }
 
       .toggle.on .switch {
@@ -108,6 +120,11 @@
         font-weight: bold;
         color: #fff;
         margin-top: 1em;
+        transition: color 150ms ease-in-out;
+      }
+
+      #status.off {
+        color: #808080;
       }
 
       #status.on .on {
@@ -124,7 +141,6 @@
 
       #status.off .off {
         display: inline;
-        color: red;
       }
 
       .description {
@@ -148,15 +164,19 @@
   <body>
     
     <div class="panel">
-      <div id="toggle" class="toggle on"><div id="switch" class="switch"><div class="bevel"></div></div></div>
+      <div id="toggle" class="toggle on">
+        <div id="switch" class="switch">
+          <div class="bevel"></div>
+        </div>
+      </div>
       <div id="status">Recording
         <span class="on"> Enabled</span>
         <span class="off"> Disabled</span>
       </div>
     </div>
     <div class="logo-bar">
-      <div class="logo" id="loadster"></div>
-      <div class="logo" id="speedway"></div>
+      <a href="https://loadster.app" target="_blank" class="logo" id="loadster"></a>
+      <a href="https://speedway.app" target="_blank" class="logo" id="speedway"></a>
     </div>
     
     <!-- <div class="description">
