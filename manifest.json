@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Loadster Recorder",
   "description": "Create test scripts to run in Loadster and Speedway.",
-  "version": "4",
+  "version": "5",
   "icons": {
     "16": "images/icon-16x16.png",
     "32": "images/icon-32x32.png",
@@ -33,7 +33,9 @@
       "matches": ["*://*/*"],
       "js": [
         "js/browser-polyfill.min.js",
-        "js/blinker.js"
+        "js/finder.min.js",
+        "js/blinker.js",
+        "js/windowEventRecorder.js"
       ],
       "run_at": "document_idle"
     }

@@ -142,6 +142,10 @@ function blinkTitle (tick, port) {
             type: 'loadster_blink_title',
             value: tick
         });
+        browser.tabs.sendMessage(id, {
+            type: 'loadster_recording',
+            value: true
+        });
     });
 }
 
@@ -149,6 +153,10 @@ function stopBlinkingTitle (tabId) {
     browser.tabs.sendMessage(tabId, {
         type: 'loadster_blink_title',
         value: null
+    });
+    browser.tabs.sendMessage(tabId, {
+        type: 'loadster_recording',
+        value: false
     });
 }
 
@@ -231,6 +239,12 @@ browser.runtime.onConnect.addListener(function (port) {
 
         tick = 0;
     })
+});
+
+browser.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
+    if (msg.type === 'loadster_browser_event') {
+        console.log(`recorded event from ${sender.tab.id}:`, msg.value);
+    }
 });
 
 browser.tabs.onActivated.addListener(async function (activeInfo) {
