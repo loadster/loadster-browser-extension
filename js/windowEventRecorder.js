@@ -31,11 +31,16 @@ const recordEvent = (e) => {
             seedMinLength: (e.target.id) ? 1 : 5,  // if the target has an id, use that instead of multiple other selectors
             optimizedMinLength: 5
         })
+        const attrs = {};
+        for (let i = 0, x = e.target.attributes, n = x.length; i < n; i++){
+            attrs[x[i].name] = x[i].value
+        }
         const msg = {
             selector: selector,
             value: e.target.value,
             tagName: e.target.tagName,
             action: e.type,
+            attrs: attrs,
             keyboard: {
                 alt: e.altKey,
                 shift: e.shiftKey,
