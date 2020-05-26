@@ -140,8 +140,7 @@ function blinkTitle (tick, port) {
             value: tick
         });
         browser.tabs.sendMessage(id, {
-            type: RECORDING_START,
-            value: true
+            type: RECORDING_START
         });
     });
 }
@@ -152,8 +151,7 @@ function stopBlinkingTitle (tabId) {
         value: null
     });
     browser.tabs.sendMessage(tabId, {
-        type: RECORDING_STOP,
-        value: false
+        type: RECORDING_STOP
     });
 }
 

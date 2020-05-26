@@ -20,21 +20,29 @@ const sendMessage = (msg) => {
 }
 
 const recordEvent = (e) => {
+    const attrFilter = ['class']
     // we explicitly catch any errors and swallow them, as none node-type events are also ingested.
     // for these events we cannot generate selectors, which is OK
     try {
-        const optimizedMinLength = (e.target.id) ? 2 : 10 // if the target has an id, use that instead of multiple other selectors
-        const selector = finder(e.target, { seedMinLength: 5, optimizedMinLength: optimizedMinLength })
+        const selector = finder(e.target, {
+            className: (name) => true, // !name.startsWith('is-') etc.
+            tagName: (name) => true,
+            attr: (name, value) => !attrFilter.includes(name),
+            seedMinLength: (e.target.id) ? 1 : 5,  // if the target has an id, use that instead of multiple other selectors
+            optimizedMinLength: 5
+        })
         const msg = {
             selector: selector,
             value: e.target.value,
             tagName: e.target.tagName,
             action: e.type,
             keyboard: {
+                alt: e.altKey,
                 shift: e.shiftKey,
                 ctrl: e.ctrlKey,
                 meta: e.metaKey
             },
+            textContent: e.target.textContent,
             href: e.target.href ? e.target.href : null
         }
         sendMessage(msg)
