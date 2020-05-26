@@ -47,6 +47,7 @@
     "storage",
     "webRequest",
     "webRequestBlocking",
+    "webNavigation",
     "*://*/*"
   ]
 }

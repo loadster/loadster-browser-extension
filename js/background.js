@@ -178,6 +178,24 @@ function handleCreatedRootTab (tab, port) {
     browser.tabs.onRemoved.addListener((tabId, info) => handleRemovedTab(tabId, port));
 }
 
+function navigationCommitted (details) {
+    const {
+        tabId, 
+        transitionQualifiers, // Extra information about the navigation: for example, whether there was a server or client redirect.
+        transitionType, // The reason for the navigation
+        url, 
+        frameId, //  0 indicates that navigation happens in the tab's top-level browsing context, not in a nested <iframe>
+        parentFrameId, // ID of this frame's parent. -1 if this is a top-level frame.
+        timeStamp,
+        processId
+    } = details;
+    const ingoredTransitions = ['auto_subframe'];
+
+    if (!ingoredTransitions.includes(transitionType) && ports.some(p => p.tabIds.includes(tabId))) {
+        console.log(`Navigation committed in ${tabId}.`, `Reason: ${transitionType}.`, transitionQualifiers);
+    }
+}
+
 //
 // Create a catch-all filter so we see all types of content
 //
@@ -196,7 +214,7 @@ browser.webRequest.onResponseStarted.addListener(requestUpdated, filter, ['respo
 browser.webRequest.onCompleted.addListener(finishRequest, filter, ['responseHeaders']);
 
 browser.runtime.onInstalled.addListener(handleFirstRun);
-
+browser.webNavigation.onCommitted.addListener(navigationCommitted);
 //
 // Listen for messages from the Loadster dashboard
 //
