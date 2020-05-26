@@ -1,5 +1,4 @@
-var WORKBENCH_URL = "http://localhost:1999/recording/events?type=chrome";
-var INTERVAL = 1000;
+const INTERVAL = 1000;
 
 const IGNORED_PREFIXES = [
     "https://loadster.app",
@@ -24,13 +23,11 @@ async function requestUpdated (info) {
         try {
             const tab = await browser.tabs.get(info.tabId);
             if (tab.url) {
-                for (var i = 0; i < IGNORED_PREFIXES.length; i++) {
+                for (let i = 0; i < IGNORED_PREFIXES.length; i++) {
                     if (tab.url.indexOf(IGNORED_PREFIXES[i]) === 0) {
                         return;
                     }
                 }
-            } else if (info.url === WORKBENCH_URL) {
-                return;
             }
 
             // Track the request start time if it's a new request
@@ -43,8 +40,8 @@ async function requestUpdated (info) {
             // Base64 encode the body parts if necessary
             // TODO recording file uploads. consider to use FileReader here
             if (info.requestBody && info.requestBody.raw) {
-                for (var i = 0; i < info.requestBody.raw.length; i++) {
-                    var part = info.requestBody.raw[i];
+                for (let i = 0; i < info.requestBody.raw.length; i++) {
+                    const part = info.requestBody.raw[i];
 
                     if (part.bytes) {
                         part.base64 = toBase64(part.bytes);
@@ -54,7 +51,7 @@ async function requestUpdated (info) {
             }
 
             // Copy properties
-            for (var prop in info) {
+            for (let prop in info) {
                 if (info.hasOwnProperty(prop)) {
                     requests[info.requestId][prop] = info[prop];
                 }
@@ -81,12 +78,12 @@ async function headersReceived (info) {
 // keeping the original for further updates.
 //
 function requestRedirected (info) {
-    var request = requests[info.requestId];
+    const request = requests[info.requestId];
 
     if (request) {
-        var redirected = {};
+        const redirected = {};
 
-        for (var prop in request) {
+        for (let prop in request) {
             if (request.hasOwnProperty(prop)) {
                 redirected[prop] = request[prop];
             }
@@ -125,11 +122,11 @@ function isEnabled () {
 // Reads an array buffer into a Base64 string
 //
 function toBase64 (buffer) {
-    var binary = '';
-    var bytes = new Uint8Array(buffer);
-    var length = bytes.byteLength;
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const length = bytes.byteLength;
 
-    for (var i = 0; i < length; i++) {
+    for (let i = 0; i < length; i++) {
         binary += String.fromCharCode(bytes[i]);
     }
 
@@ -273,9 +270,9 @@ browser.tabs.onActivated.addListener(async function (activeInfo) {
 // Upload events to Loadster at set intervals
 //
 setInterval(function () {
-    var upload = {};
+    const upload = {};
     
-    for (var requestId in requests) {
+    for (let requestId in requests) {
         if (requests.hasOwnProperty(requestId)) {
             if (requests[requestId].completed) {
                 upload[requestId] = requests[requestId];
@@ -286,24 +283,6 @@ setInterval(function () {
     }
     
     if (Object.keys(upload).length && isEnabled()) {
-        var xhr = new XMLHttpRequest();
-
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === 4) {
-                var status = xhr.status;
-
-                if (status === 200 || status === 201) {
-                    console.log("Uploaded " + Object.keys(upload).length + " recording events to " + WORKBENCH_URL);
-                } else {
-                    console.warn("Failed to upload " + Object.keys(upload).length + " recording events to " + WORKBENCH_URL);
-                }
-            }
-        };
-
-        xhr.open("POST", WORKBENCH_URL, true);
-        xhr.setRequestHeader("Content-Type", "application/json");
-        xhr.send(JSON.stringify(upload));
-
         console.log('Sending recording events to ' + ports.length + ' port(s)')
 
         ports.forEach(function (port) {
