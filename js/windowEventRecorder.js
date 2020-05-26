@@ -11,7 +11,7 @@ let enabled = false;
 const sendMessage = (msg) => {
     try {
         browser.runtime.sendMessage({
-            type: 'loadster_browser_event',
+            type: USER_ACTION,
             value: msg
         })
     } catch (err) {
@@ -63,10 +63,10 @@ const stopRecording = () => {
 
 
 browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg.type === 'loadster_recording' && msg.value && !enabled) {
+    if (msg.type === RECORDING_START && !enabled) {
         startRecording()
-    } else if (msg.type === 'loadster_recording' && !msg.value && enabled) {
-        stopRecording(null)
+    } else if (msg.type === RECORDING_STOP) {
+        stopRecording()
     }
 })
 

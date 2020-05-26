@@ -136,11 +136,11 @@ function toBase64 (buffer) {
 function blinkTitle (tick, port) {
     port.tabIds.forEach(id => {
         browser.tabs.sendMessage(id, {
-            type: 'loadster_blink_title',
+            type: BLINK_TITLE,
             value: tick
         });
         browser.tabs.sendMessage(id, {
-            type: 'loadster_recording',
+            type: RECORDING_START,
             value: true
         });
     });
@@ -148,11 +148,11 @@ function blinkTitle (tick, port) {
 
 function stopBlinkingTitle (tabId) {
     browser.tabs.sendMessage(tabId, {
-        type: 'loadster_blink_title',
+        type: BLINK_TITLE,
         value: null
     });
     browser.tabs.sendMessage(tabId, {
-        type: 'loadster_recording',
+        type: RECORDING_STOP,
         value: false
     });
 }
@@ -169,7 +169,7 @@ function handleRemovedTab (tabId, port) {
         port.tabIds.splice(index, 1);
     }
     if (!port.tabIds.length) {
-        port.postMessage({type: 'RecordingStop', data: 'No pages open'});
+        port.postMessage({type: RECORDING_STOP, data: 'No pages open'});
     }
 }
 
@@ -211,11 +211,11 @@ browser.runtime.onConnect.addListener(function (port) {
     let tick = 0;
 
     port.onMessage.addListener(async function (msg) {
-        if (msg.type === 'Ping') {
+        if (msg.type === PING) {
             blinkTitle(tick, port);
-            port.postMessage({type: 'Pong', enabled: isEnabled()});
+            port.postMessage({type: PONG, enabled: isEnabled()});
             tick++;
-        } else if (msg.type === 'Url') {
+        } else if (msg.type === NAVIGATE_URL) {
             const tab = await browser.tabs.create({
                 url: msg.value,
                 active: true,
@@ -239,7 +239,7 @@ browser.runtime.onConnect.addListener(function (port) {
 });
 
 browser.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
-    if (msg.type === 'loadster_browser_event') {
+    if (msg.type === USER_ACTION) {
         console.log(`recorded event from ${sender.tab.id}:`, msg.value);
     }
 });
@@ -252,7 +252,7 @@ browser.tabs.onActivated.addListener(async function (activeInfo) {
         // check if content_script loaded
         try {
             await browser.tabs.sendMessage(tabId, {
-                text: 'loadster_content_script_loaded'
+                text: CONTENT_SCRIPT_LOADED
             });
         } catch (err) {
             console.log(err.message); // Could not establish connection. Receiving end does not exist.
@@ -293,7 +293,7 @@ setInterval(function () {
                     [key]: upload[key]
                 }), {});
 
-            port.postMessage({type: "RecordingEvents", data: filtered});
+            port.postMessage({type: SEND_RESULT_REQESTS, data: filtered});
         });
     }
 }, INTERVAL);

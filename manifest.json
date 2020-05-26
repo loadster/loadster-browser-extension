@@ -17,6 +17,7 @@
   "background": {
     "scripts": [
       "js/browser-polyfill.min.js",
+      "js/constants.js",
       "js/background.js"
     ]
   },
@@ -34,6 +35,7 @@
       "js": [
         "js/browser-polyfill.min.js",
         "js/finder.min.js",
+        "js/constants.js",
         "js/blinker.js",
         "js/windowEventRecorder.js"
       ],
