@@ -7,7 +7,12 @@ const IGNORED_PREFIXES = [
 const manifest = browser.runtime.getManifest();
 
 let requests = {}; // Requests are stored here until they are uploaded
+let browserEvents = {};
 let ports = []; // Listeners from the Loadster website that want to receive recording events
+
+function generateId (prefix) {
+    return `${prefix}_${Math.random().toString(36).substr(2, 9)}`;
+}
 
 function handleFirstRun (details) {
     if (details.reason === 'install') {
@@ -179,20 +184,12 @@ function handleCreatedRootTab (tab, port) {
 }
 
 function navigationCommitted (details) {
-    const {
-        tabId, 
-        transitionQualifiers, // Extra information about the navigation: for example, whether there was a server or client redirect.
-        transitionType, // The reason for the navigation
-        url, 
-        frameId, //  0 indicates that navigation happens in the tab's top-level browsing context, not in a nested <iframe>
-        parentFrameId, // ID of this frame's parent. -1 if this is a top-level frame.
-        timeStamp,
-        processId
-    } = details;
-    const ingoredTransitions = ['auto_subframe'];
+    const { tabId, ...data } = details;
+    const ingoredTransitions = []; // ['auto_subframe']
 
-    if (!ingoredTransitions.includes(transitionType) && ports.some(p => p.tabIds.includes(tabId))) {
-        console.log(`Navigation committed in ${tabId}.`, `Reason: ${transitionType}.`, transitionQualifiers);
+    if (!ingoredTransitions.includes(data.transitionType) && ports.some(p => p.tabIds.includes(tabId))) {
+        const action = 'navigate'
+        browserEvents[generateId(action)] = { action, data, tabId };
     }
 }
 
@@ -254,9 +251,15 @@ browser.runtime.onConnect.addListener(function (port) {
     })
 });
 
-browser.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
+browser.runtime.onMessage.addListener(function(msg, sender) {
     if (msg.type === USER_ACTION) {
-        console.log(`recorded event from ${sender.tab.id}:`, msg.value);
+        const {action, ...data} = msg.value
+        
+        browserEvents[generateId(action)] = { 
+            action, 
+            data, 
+            tabId: sender.tab.id 
+        };
     }
 });
 
@@ -286,30 +289,52 @@ browser.tabs.onActivated.addListener(async function (activeInfo) {
 // Upload events to Loadster at set intervals
 //
 setInterval(function () {
-    const upload = {};
+    const upload = {
+        http: {},
+        browser: {}
+    };
     
     for (let requestId in requests) {
-        if (requests.hasOwnProperty(requestId)) {
-            if (requests[requestId].completed) {
-                upload[requestId] = requests[requestId];
+        if (requests.hasOwnProperty(requestId) && requests[requestId].completed) {
+            upload.http[requestId] = requests[requestId];
 
-                delete requests[requestId];
-            }
+            delete requests[requestId];
+        }
+    }
+    for (let eventId in browserEvents) {
+        if (browserEvents.hasOwnProperty(eventId)) {
+            upload.browser[eventId] = browserEvents[eventId];
+            
+            delete browserEvents[eventId];
         }
     }
     
-    if (Object.keys(upload).length && isEnabled()) {
+    if (Object.keys(upload.http).length || Object.keys(upload.browser).length && isEnabled()) {
         console.log('Sending recording events to ' + ports.length + ' port(s)')
 
         ports.forEach(function (port) {
-            const filtered = Object.keys(upload)
-                .filter(key => port.tabIds.includes(upload[key].tabId))
+            const filteredHttpEvents = Object.keys(upload.http)
+                .filter(key => port.tabIds.includes(upload.http[key].tabId))
                 .reduce((obj, key) => ({
                     ...obj,
-                    [key]: upload[key]
+                    [key]: upload.http[key]
                 }), {});
 
-            port.postMessage({type: SEND_RESULT_REQESTS, data: filtered});
+            const filteredBrowserEvents = Object.keys(upload.browser)
+                .filter(key => port.tabIds.includes(upload.browser[key].tabId))
+                .reduce((obj, key) => ({
+                    ...obj,
+                    [key]: upload.browser[key]
+                }), {})
+            
+
+            port.postMessage({
+                type: RECORDING_EVENTS, 
+                data: {
+                    http: filteredHttpEvents,
+                    browser: filteredBrowserEvents
+                }
+            });
         });
     }
 }, INTERVAL);
