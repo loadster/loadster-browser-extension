@@ -76,7 +76,7 @@ const stopRecording = () => {
 
 
 browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg.type === RECORDING_START && !enabled) {
+    if (msg.type === RECORDING && !enabled) {
         startRecording()
     } else if (msg.type === RECORDING_STOP) {
         stopRecording()

@@ -143,10 +143,10 @@ function blinkTitle (tick, port) {
         browser.tabs.sendMessage(id, {
             type: BLINK_TITLE,
             value: tick
-        });
+        }).catch(err => {});
         browser.tabs.sendMessage(id, {
-            type: RECORDING_START
-        });
+            type: RECORDING
+        }).catch(err => {});
     });
 }
 
@@ -154,10 +154,10 @@ function stopBlinkingTitle (tabId) {
     browser.tabs.sendMessage(tabId, {
         type: BLINK_TITLE,
         value: null
-    });
+    }).catch(err => {});
     browser.tabs.sendMessage(tabId, {
         type: RECORDING_STOP
-    });
+    }).catch(err => {});
 }
 
 function handleCreatedTab (created, port) {

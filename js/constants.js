@@ -1,5 +1,5 @@
 const BLINK_TITLE = 'loadster_blink_title'
-const RECORDING_START = 'loadster_recording'
+const RECORDING = 'loadster_recording'
 const RECORDING_STOP = 'RecordingStop'
 const CONTENT_SCRIPT_LOADED = 'loadster_content_script_loaded'
 const USER_ACTION = 'loadster_browser_event'
