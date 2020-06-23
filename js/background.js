@@ -1,5 +1,4 @@
-var WORKBENCH_URL = "http://localhost:1999/recording/events?type=chrome";
-var INTERVAL = 1000;
+const INTERVAL = 1000;
 
 const IGNORED_PREFIXES = [
     "https://loadster.app",
@@ -8,7 +7,12 @@ const IGNORED_PREFIXES = [
 const manifest = browser.runtime.getManifest();
 
 let requests = {}; // Requests are stored here until they are uploaded
+let browserEvents = {};
 let ports = []; // Listeners from the Loadster website that want to receive recording events
+
+function generateId (prefix) {
+    return `${prefix}_${Math.random().toString(36).substr(2, 9)}`;
+}
 
 function handleFirstRun (details) {
     if (details.reason === 'install') {
@@ -24,13 +28,11 @@ async function requestUpdated (info) {
         try {
             const tab = await browser.tabs.get(info.tabId);
             if (tab.url) {
-                for (var i = 0; i < IGNORED_PREFIXES.length; i++) {
+                for (let i = 0; i < IGNORED_PREFIXES.length; i++) {
                     if (tab.url.indexOf(IGNORED_PREFIXES[i]) === 0) {
                         return;
                     }
                 }
-            } else if (info.url === WORKBENCH_URL) {
-                return;
             }
 
             // Track the request start time if it's a new request
@@ -43,8 +45,8 @@ async function requestUpdated (info) {
             // Base64 encode the body parts if necessary
             // TODO recording file uploads. consider to use FileReader here
             if (info.requestBody && info.requestBody.raw) {
-                for (var i = 0; i < info.requestBody.raw.length; i++) {
-                    var part = info.requestBody.raw[i];
+                for (let i = 0; i < info.requestBody.raw.length; i++) {
+                    const part = info.requestBody.raw[i];
 
                     if (part.bytes) {
                         part.base64 = toBase64(part.bytes);
@@ -54,7 +56,7 @@ async function requestUpdated (info) {
             }
 
             // Copy properties
-            for (var prop in info) {
+            for (let prop in info) {
                 if (info.hasOwnProperty(prop)) {
                     requests[info.requestId][prop] = info[prop];
                 }
@@ -81,12 +83,12 @@ async function headersReceived (info) {
 // keeping the original for further updates.
 //
 function requestRedirected (info) {
-    var request = requests[info.requestId];
+    const request = requests[info.requestId];
 
     if (request) {
-        var redirected = {};
+        const redirected = {};
 
-        for (var prop in request) {
+        for (let prop in request) {
             if (request.hasOwnProperty(prop)) {
                 redirected[prop] = request[prop];
             }
@@ -125,11 +127,11 @@ function isEnabled () {
 // Reads an array buffer into a Base64 string
 //
 function toBase64 (buffer) {
-    var binary = '';
-    var bytes = new Uint8Array(buffer);
-    var length = bytes.byteLength;
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const length = bytes.byteLength;
 
-    for (var i = 0; i < length; i++) {
+    for (let i = 0; i < length; i++) {
         binary += String.fromCharCode(bytes[i]);
     }
 
@@ -139,17 +141,23 @@ function toBase64 (buffer) {
 function blinkTitle (tick, port) {
     port.tabIds.forEach(id => {
         browser.tabs.sendMessage(id, {
-            type: 'loadster_blink_title',
+            type: BLINK_TITLE,
             value: tick
-        });
+        }).catch(err => {});
+        browser.tabs.sendMessage(id, {
+            type: RECORDING
+        }).catch(err => {});
     });
 }
 
 function stopBlinkingTitle (tabId) {
     browser.tabs.sendMessage(tabId, {
-        type: 'loadster_blink_title',
+        type: BLINK_TITLE,
         value: null
-    });
+    }).catch(err => {});
+    browser.tabs.sendMessage(tabId, {
+        type: RECORDING_STOP
+    }).catch(err => {});
 }
 
 function handleCreatedTab (created, port) {
@@ -164,7 +172,7 @@ function handleRemovedTab (tabId, port) {
         port.tabIds.splice(index, 1);
     }
     if (!port.tabIds.length) {
-        port.postMessage({type: 'RecordingStop', data: 'No pages open'});
+        port.postMessage({type: RECORDING_STOP, data: 'No pages open'});
     }
 }
 
@@ -173,6 +181,16 @@ function handleCreatedRootTab (tab, port) {
 
     browser.tabs.onCreated.addListener((created) => handleCreatedTab(created, port));
     browser.tabs.onRemoved.addListener((tabId, info) => handleRemovedTab(tabId, port));
+}
+
+function navigationCommitted (details) {
+    const { tabId, ...data } = details;
+    const ingoredTransitions = []; // ['auto_subframe']
+
+    if (!ingoredTransitions.includes(data.transitionType) && ports.some(p => p.tabIds.includes(tabId))) {
+        const action = 'navigate'
+        browserEvents[generateId(action)] = { action, data, tabId };
+    }
 }
 
 //
@@ -193,7 +211,7 @@ browser.webRequest.onResponseStarted.addListener(requestUpdated, filter, ['respo
 browser.webRequest.onCompleted.addListener(finishRequest, filter, ['responseHeaders']);
 
 browser.runtime.onInstalled.addListener(handleFirstRun);
-
+browser.webNavigation.onCommitted.addListener(navigationCommitted);
 //
 // Listen for messages from the Loadster dashboard
 //
@@ -206,11 +224,11 @@ browser.runtime.onConnect.addListener(function (port) {
     let tick = 0;
 
     port.onMessage.addListener(async function (msg) {
-        if (msg.type === 'Ping') {
+        if (msg.type === PING) {
             blinkTitle(tick, port);
-            port.postMessage({type: 'Pong', enabled: isEnabled()});
+            port.postMessage({type: PONG, enabled: isEnabled()});
             tick++;
-        } else if (msg.type === 'Url') {
+        } else if (msg.type === NAVIGATE_URL) {
             const tab = await browser.tabs.create({
                 url: msg.value,
                 active: true,
@@ -233,6 +251,18 @@ browser.runtime.onConnect.addListener(function (port) {
     })
 });
 
+browser.runtime.onMessage.addListener(function(msg, sender) {
+    if (msg.type === USER_ACTION) {
+        const {action, ...data} = msg.value
+        
+        browserEvents[generateId(action)] = { 
+            action, 
+            data, 
+            tabId: sender.tab.id 
+        };
+    }
+});
+
 browser.tabs.onActivated.addListener(async function (activeInfo) {
     const tabId = activeInfo.tabId;
     const tabInfo = await browser.tabs.get(tabId);
@@ -241,7 +271,7 @@ browser.tabs.onActivated.addListener(async function (activeInfo) {
         // check if content_script loaded
         try {
             await browser.tabs.sendMessage(tabId, {
-                text: 'loadster_content_script_loaded'
+                text: CONTENT_SCRIPT_LOADED
             });
         } catch (err) {
             console.log(err.message); // Could not establish connection. Receiving end does not exist.
@@ -259,48 +289,52 @@ browser.tabs.onActivated.addListener(async function (activeInfo) {
 // Upload events to Loadster at set intervals
 //
 setInterval(function () {
-    var upload = {};
+    const upload = {
+        http: {},
+        browser: {}
+    };
     
-    for (var requestId in requests) {
-        if (requests.hasOwnProperty(requestId)) {
-            if (requests[requestId].completed) {
-                upload[requestId] = requests[requestId];
+    for (let requestId in requests) {
+        if (requests.hasOwnProperty(requestId) && requests[requestId].completed) {
+            upload.http[requestId] = requests[requestId];
 
-                delete requests[requestId];
-            }
+            delete requests[requestId];
+        }
+    }
+    for (let eventId in browserEvents) {
+        if (browserEvents.hasOwnProperty(eventId)) {
+            upload.browser[eventId] = browserEvents[eventId];
+            
+            delete browserEvents[eventId];
         }
     }
     
-    if (Object.keys(upload).length && isEnabled()) {
-        var xhr = new XMLHttpRequest();
-
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === 4) {
-                var status = xhr.status;
-
-                if (status === 200 || status === 201) {
-                    console.log("Uploaded " + Object.keys(upload).length + " recording events to " + WORKBENCH_URL);
-                } else {
-                    console.warn("Failed to upload " + Object.keys(upload).length + " recording events to " + WORKBENCH_URL);
-                }
-            }
-        };
-
-        xhr.open("POST", WORKBENCH_URL, true);
-        xhr.setRequestHeader("Content-Type", "application/json");
-        xhr.send(JSON.stringify(upload));
-
+    if (Object.keys(upload.http).length || Object.keys(upload.browser).length && isEnabled()) {
         console.log('Sending recording events to ' + ports.length + ' port(s)')
 
         ports.forEach(function (port) {
-            const filtered = Object.keys(upload)
-                .filter(key => port.tabIds.includes(upload[key].tabId))
+            const filteredHttpEvents = Object.keys(upload.http)
+                .filter(key => port.tabIds.includes(upload.http[key].tabId))
                 .reduce((obj, key) => ({
                     ...obj,
-                    [key]: upload[key]
+                    [key]: upload.http[key]
                 }), {});
 
-            port.postMessage({type: "RecordingEvents", data: filtered});
+            const filteredBrowserEvents = Object.keys(upload.browser)
+                .filter(key => port.tabIds.includes(upload.browser[key].tabId))
+                .reduce((obj, key) => ({
+                    ...obj,
+                    [key]: upload.browser[key]
+                }), {})
+            
+
+            port.postMessage({
+                type: RECORDING_EVENTS, 
+                data: {
+                    http: filteredHttpEvents,
+                    browser: filteredBrowserEvents
+                }
+            });
         });
     }
 }, INTERVAL);
