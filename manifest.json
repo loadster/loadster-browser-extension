@@ -34,7 +34,7 @@
       "matches": ["*://*/*"],
       "js": [
         "js/browser-polyfill.min.js",
-        "js/finder.min.js",
+        "js/finder.js",
         "js/constants.js",
         "js/blinker.js",
         "js/windowEventRecorder.js"
