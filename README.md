@@ -13,3 +13,8 @@ To learn more about Loadster and load testing in general, check out [Loadster](h
 While Loadster is a commercial product, our browser extensions are open source under the [Apache License](LICENSE). We've put the source code on GitHub because we want you to be able to freely inspect the extension's source code and understand how it works.
 
 If you have any questions about the extension or its licensing, please contact [info@loadster.app](mailto:info@loadster.app).
+
+## Libraries
+
+* [@medv/finder](https://www.npmjs.com/package/@medv/finder) - unminified transpiled version included in source
+* [webextension-polyfill](https://github.com/mozilla/webextension-polyfill) - minified version included, thanks to Mozilla
