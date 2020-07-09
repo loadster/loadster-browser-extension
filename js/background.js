@@ -185,9 +185,9 @@ function handleCreatedRootTab (tab, port) {
 
 function navigationCommitted (details) {
     const { tabId, ...data } = details;
-    const ingoredTransitions = []; // ['auto_subframe']
+    const ignoredTransitions = ['auto_subframe'];
 
-    if (!ingoredTransitions.includes(data.transitionType) && ports.some(p => p.tabIds.includes(tabId))) {
+    if (!ignoredTransitions.includes(data.transitionType) && ports.some(p => p.tabIds.includes(tabId))) {
         const action = 'navigate'
         browserEvents[generateId(action)] = { action, data, tabId };
     }
@@ -254,7 +254,7 @@ browser.runtime.onConnect.addListener(function (port) {
 browser.runtime.onMessage.addListener(function(msg, sender) {
     if (msg.type === USER_ACTION) {
         const {action, ...data} = msg.value
-        
+
         browserEvents[generateId(action)] = { 
             action, 
             data, 
