@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Loadster Recorder",
   "description": "Create test scripts to run in Loadster and Speedway.",
-  "version": "6",
+  "version": "7",
   "icons": {
     "16": "images/icon-16x16.png",
     "32": "images/icon-32x32.png",
@@ -39,7 +39,8 @@
         "js/blinker.js",
         "js/windowEventRecorder.js"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "permissions": [

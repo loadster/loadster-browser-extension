@@ -24,17 +24,44 @@ const recordEvent = (e) => {
     // we explicitly catch any errors and swallow them, as none node-type events are also ingested.
     // for these events we cannot generate selectors, which is OK
     try {
-        const selector = finder(e.target, {
+        let selector = finder(e.target, {
             className: (name) => true, // !name.startsWith('is-') etc.
             tagName: (name) => true,
             attr: (name, value) => !attrFilter.includes(name),
             seedMinLength: (e.target.id) ? 1 : 5,  // if the target has an id, use that instead of multiple other selectors
             optimizedMinLength: 5
         })
-        const attrs = {};
+        const attrs = {}
+
         for (let i = 0, x = e.target.attributes, n = x.length; i < n; i++){
             attrs[x[i].name] = x[i].value
         }
+
+        if (window.parent !== window) {
+            let frame = window
+            let frameElement = window.frameElement
+            let frameTag = window.frameElement ? window.frameElement.tagName.toLowerCase() : 'iframe';
+
+            if (frame.name) {
+                attrs['frameName'] = frame.name
+                attrs['frameElement'] = frameElement
+
+                selector = `${frameTag}[name="${frame.name}"] ${selector}`
+            } else {
+                while (frame.parent !== frame) {
+                    for (let i = 0; i < frame.parent.frames.length; i++) {
+                        if (frame.parent.frames[i] === frame) {
+                            attrs['frameIndex'] = i
+
+                            selector = `${frameTag}[${i}] ${selector}`
+                        }
+                    }
+
+                    frame = frame.parent
+                }
+            }
+        }
+
         const msg = {
             selector: selector,
             value: e.target.value,
