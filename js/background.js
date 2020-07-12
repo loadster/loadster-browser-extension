@@ -185,7 +185,7 @@ function handleCreatedRootTab (tab, port) {
 
 function navigationCommitted (details) {
     const { tabId, ...data } = details;
-    const ignoredTransitions = ['auto_subframe'];
+    const ignoredTransitions = ['auto_subframe', 'manual_subframe', 'link', 'form_submit'];
 
     if (!ignoredTransitions.includes(data.transitionType) && ports.some(p => p.tabIds.includes(tabId))) {
         const action = 'navigate'
