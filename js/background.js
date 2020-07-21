@@ -229,11 +229,16 @@ browser.runtime.onConnect.addListener(function (port) {
             port.postMessage({type: PONG, enabled: isEnabled()});
             tick++;
         } else if (msg.type === NAVIGATE_URL) {
+            const action = 'navigate';
+            const url = msg.value;
             const tab = await browser.tabs.create({
-                url: msg.value,
+                url,
                 active: true,
             });
+
             handleCreatedRootTab(tab, port);
+
+            browserEvents[generateId(action)] = { action, data: { url }, tabId: tab.id };
         } else {
             console.log('got unexpected message: ', msg);
         }
