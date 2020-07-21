@@ -39,12 +39,10 @@ const recordEvent = (e) => {
 
         if (window.parent !== window) {
             let frame = window
-            let frameElement = window.frameElement
             let frameTag = window.frameElement ? window.frameElement.tagName.toLowerCase() : 'iframe';
 
             if (frame.name) {
                 attrs['frameName'] = frame.name
-                attrs['frameElement'] = frameElement
 
                 selector = `${frameTag}[name="${frame.name}"] ${selector}`
             } else {
@@ -77,6 +75,7 @@ const recordEvent = (e) => {
             textContent: e.target.textContent,
             href: e.target.href ? e.target.href : null
         }
+
         sendMessage(msg)
     } catch (e) {
         console.log(e.message);
