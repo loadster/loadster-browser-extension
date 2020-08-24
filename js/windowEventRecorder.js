@@ -61,6 +61,7 @@ const recordEvent = (e) => {
         }
 
         const msg = {
+            timestamp: Date.now(),
             selector: selector,
             value: e.target.value,
             tagName: e.target.tagName,
