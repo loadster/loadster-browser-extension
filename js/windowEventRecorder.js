@@ -20,6 +20,8 @@ const sendMessage = (msg) => {
 }
 
 const recordEvent = (e) => {
+    if (!enabled) return
+
     const attrFilter = ['class']
     // we explicitly catch any errors and swallow them, as none node-type events are also ingested.
     // for these events we cannot generate selectors, which is OK
@@ -83,6 +85,7 @@ const recordEvent = (e) => {
     }
 }
 
+/* 
 const startRecording = () => {
     const events = Object.values(windowEventsToRecord)
 
@@ -100,13 +103,18 @@ const stopRecording = () => {
     })
     enabled = false
 }
+*/
 
+const events = Object.values(windowEventsToRecord)
+events.forEach(type => {
+    window.addEventListener(type, recordEvent, true)
+})
 
 browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === RECORDING && !enabled) {
-        startRecording()
+        enabled = true
     } else if (msg.type === RECORDING_STOP) {
-        stopRecording()
+        enabled = false
     }
 })
 
