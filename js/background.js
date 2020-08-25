@@ -184,6 +184,7 @@ function handleCreatedRootTab (tab, port) {
 }
 
 function navigationCommitted (details) {
+    details.timestamp = Date.now()
     const { tabId, ...data } = details;
     const ignoredTransitions = ['auto_subframe', 'manual_subframe', 'link', 'form_submit'];
 
@@ -238,7 +239,7 @@ browser.runtime.onConnect.addListener(function (port) {
 
             handleCreatedRootTab(tab, port);
 
-            browserEvents[generateId(action)] = { action, data: { url }, tabId: tab.id };
+            browserEvents[generateId(action)] = { action, data: { url, timestamp: Date.now() }, tabId: tab.id };
         } else {
             console.log('got unexpected message: ', msg);
         }

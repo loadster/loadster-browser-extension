@@ -20,16 +20,19 @@ const sendMessage = (msg) => {
 }
 
 const recordEvent = (e) => {
-    const attrFilter = ['class']
+    if (!enabled) return
+
+    const attrFilter = ['class', 'id']
     // we explicitly catch any errors and swallow them, as none node-type events are also ingested.
     // for these events we cannot generate selectors, which is OK
     try {
         let selector = finder(e.target, {
+            idName: (name) => true,
             className: (name) => true, // !name.startsWith('is-') etc.
             tagName: (name) => true,
             attr: (name, value) => !attrFilter.includes(name),
-            seedMinLength: (e.target.id) ? 1 : 5,  // if the target has an id, use that instead of multiple other selectors
-            optimizedMinLength: 5
+            seedMinLength: 1, // min 1
+            optimizedMinLength: 2 // min 2
         })
         const attrs = {}
 
@@ -61,6 +64,7 @@ const recordEvent = (e) => {
         }
 
         const msg = {
+            timestamp: Date.now(),
             selector: selector,
             value: e.target.value,
             tagName: e.target.tagName,
@@ -82,6 +86,7 @@ const recordEvent = (e) => {
     }
 }
 
+/* 
 const startRecording = () => {
     const events = Object.values(windowEventsToRecord)
 
@@ -99,13 +104,18 @@ const stopRecording = () => {
     })
     enabled = false
 }
+*/
 
+const events = Object.values(windowEventsToRecord)
+events.forEach(type => {
+    window.addEventListener(type, recordEvent, true)
+})
 
 browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === RECORDING && !enabled) {
-        startRecording()
+        enabled = true
     } else if (msg.type === RECORDING_STOP) {
-        stopRecording()
+        enabled = false
     }
 })
 
