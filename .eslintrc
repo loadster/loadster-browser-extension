@@ -1,0 +1,39 @@
+// https://eslint.org/docs/user-guide/configuring
+{
+  "root": true,
+  "parserOptions": {
+    "ecmaVersion": 2018,
+    "sourceType": "script"
+  },
+  "env": {
+    "browser": true
+  },
+  "globals": {
+    "browser": true,
+    "window": true
+  },
+  "extends": [
+  // https://github.com/standard/standard/blob/master/docs/RULES-en.md
+      "eslint:recommended"
+  ],
+  "plugins": [],
+  "rules": {
+    "generator-star-spacing": "off",
+    "semi": [ 2,  "always"],
+    "object-curly-spacing": [ "error", "always" ],
+    "no-magic-numbers": "off",
+    "strict": "off",
+    "no-plusplus": "off",
+    "no-ternary": "off",
+    "no-negated-condition": "off",
+    "quotes": ["error", "single"],
+    "padded-blocks": ["error", "never"],
+    "function-call-argument-newline": ["error", "never"],
+    "no-unused-vars": ["warn", { "vars": "local" }],
+    "no-prototype-builtins": "warn",
+    "no-undef": "warn",
+    "no-useless-escape": "warn",
+    "no-control-regex": "warn"
+  },
+  "overrides": []
+}
