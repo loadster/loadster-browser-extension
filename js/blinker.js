@@ -1,14 +1,14 @@
-const iconA = String.fromCodePoint(parseInt('25CF', 16));
-const iconB = String.fromCodePoint(parseInt('25CB', 16));
+const iconA = String.fromCodePoint(0x25CF),
+  iconB = String.fromCodePoint(0x25CB);
 
 window.loadsterOriginalTitle = window.document.title;
 
-browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg.type === BLINK_TITLE) {
-        if (msg.value !== null) {
-            window.document.title = ((++msg.value % 2) ? iconA : iconB) + ' ' + window.loadsterOriginalTitle;
-        } else {
-            window.document.title = window.loadsterOriginalTitle;
-        }
+browser.runtime.onMessage.addListener((msg) => {
+  if (msg.type === BLINK_TITLE) {
+    if (msg.value !== null) {
+      window.document.title = `${++msg.value % 2 ? iconA : iconB} ${window.loadsterOriginalTitle}`;
+    } else {
+      window.document.title = window.loadsterOriginalTitle;
     }
+  }
 });
