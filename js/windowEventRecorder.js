@@ -5,7 +5,7 @@ const windowEventsToRecord = {
   'SELECT': 'select',
   'SUBMIT': 'submit'
 };
-
+const options = {};
 let enabled = false;
 
 const sendMessage = (msg) => {
@@ -28,9 +28,10 @@ const recordEvent = (e) => {
 
   const attrFilter = [
     'class',
-    'id'
+    'id',
+    'style'
   ];
-
+  let attrRegexFilter = options.attrRegExp ? new RegExp(options.attrRegExp) : null;
   /*
    * We explicitly catch any errors and swallow them, as none node-type events are also ingested.
    * for these events we cannot generate selectors, which is OK
@@ -40,7 +41,11 @@ const recordEvent = (e) => {
       'idName': (name) => true,
       'className': (name) => true, // !name.startsWith('is-') etc.
       'tagName': (name) => true,
-      'attr': (name, value) => !attrFilter.includes(name),
+      'attr': (name, value) => {
+        if (attrRegexFilter && attrRegexFilter.test(name)) return false;
+        if (attrFilter.includes(name)) return false;
+        return true;
+      },
       'seedMinLength': 1, // Min 1
       'optimizedMinLength': 2 // Min 2
     });
@@ -108,6 +113,9 @@ events.forEach((type) => {
 browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === RECORDING && !enabled) {
     enabled = true;
+    if (msg.options) {
+      Object.assign(options, msg.options);
+    }
   } else if (msg.type === RECORDING_STOP) {
     enabled = false;
   }

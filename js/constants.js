@@ -6,4 +6,5 @@ const BLINK_TITLE = 'loadster_blink_title',
   RECORDING = 'loadster_recording',
   RECORDING_EVENTS = 'RecordingEvents',
   RECORDING_STOP = 'RecordingStop',
-  USER_ACTION = 'loadster_browser_event';
+  USER_ACTION = 'loadster_browser_event',
+  OPTIONS = 'loadster_recording_options';
