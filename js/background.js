@@ -5,7 +5,7 @@ const IGNORED_PREFIXES = [
   'https://speedway.app'
 ];
 const manifest = browser.runtime.getManifest();
-
+const defaultRecordingOptions = {};
 let requests = {}; // Requests are stored here until they are uploaded
 let browserEvents = {};
 let ports = []; // Listeners from the Loadster website that want to receive recording events
@@ -144,7 +144,8 @@ function blinkTitle(tick, port) {
       value: tick
     }).catch(err => { });
     browser.tabs.sendMessage(id, {
-      type: RECORDING
+      type: RECORDING,
+      options: defaultRecordingOptions
     }).catch(err => { });
   });
 }
@@ -224,7 +225,9 @@ browser.runtime.onConnect.addListener(function (port) {
   let tick = 0;
 
   port.onMessage.addListener(async function (msg) {
-    if (msg.type === PING) {
+    if (msg.type === OPTIONS) {
+      Object.assign(defaultRecordingOptions, msg.value || {});
+    } else if (msg.type === PING) {
       blinkTitle(tick, port);
       port.postMessage({ type: PONG, enabled: isEnabled() });
       tick++;
