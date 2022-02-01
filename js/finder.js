@@ -1,5 +1,5 @@
 // https://github.com/antonmedv/finder (transpiled from ts)
-const finder = (function () {
+(function () {
   let Limit;
 
   (function (Limit) {
@@ -412,6 +412,8 @@ const finder = (function () {
     return output;
   }
 
+  console.log(finder);
+  window.loadster_recording_finder = finder;
   return finder;
 }());
 

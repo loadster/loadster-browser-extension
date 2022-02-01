@@ -4,60 +4,60 @@ const bridgeEvents = {
   'DISCONNECTED': 'loadster_disconnected_extension',
   'SEND': 'loadster_post_message',
   'STOP': 'loadster_stop_recording',
-  'GET_VERSION': 'loadster_get_extension_version'
 };
-let port = null;
 
-browser.runtime.onMessage.addListener((msg, sender) => new Promise((resolve) => resolve(true)));
+console.log('content script!');
 
-// Expose version to the webpage scope
-const script = document.createElement('script');
-script.textContent = `var loadster_extension_version = ${browser.runtime.getManifest().version};`;
-(document.head || document.documentElement).appendChild(script);
-script.remove();
-
-const createMessage = (msg) => {
+function createMessage(msg) {
   // Firefox security issue
-  const output = typeof cloneInto !== 'undefined' ? cloneInto(
-    msg, window, { 'cloneFunctions': true }
-  ) : msg;
+  const output = typeof cloneInto !== 'undefined' ? cloneInto(msg, window, { 'cloneFunctions': true }) : msg;
+
   return output;
-};
+}
 
 window.addEventListener(bridgeEvents.CONNECT, (event) => {
-  port = browser.runtime.connect({ 'name': 'loadster-recorder' });
-
+  const mode = event.detail.mode; // HTTP vs BROWSER
+  const app = mode === 'BROWSER' ? 'loadster-browser-recorder' : 'loadster-http-recorder';
   const { version } = browser.runtime.getManifest();
+  const port = browser.runtime.connect({ name: app }); // see service-worker.js => browser.runtime.onConnect
 
-  port.onMessage.addListener((msg) => {
-    // Add namespace and version
-    Object.assign(msg, {
-      'app': port.name,
-      version
+  console.log(bridgeEvents.CONNECTED, port, app);
+
+  function onPortMessage(msg) {
+    const responseEvent = new CustomEvent(msg.type, {
+      'detail': createMessage({ ...msg, app, version })
     });
 
-    const responseEvent = new CustomEvent(msg.type, { 'detail': createMessage(msg) });
-
     window.dispatchEvent(responseEvent);
-  });
-
-  port.onDisconnect.addListener(() => {
+  }
+  function onPortDisconnect() {
     window.dispatchEvent(new CustomEvent(bridgeEvents.DISCONNECTED));
-  });
+  }
 
-  window.dispatchEvent(
-    new CustomEvent(bridgeEvents.CONNECTED, { 'detail': createMessage({ version }) })
-  );
-});
+  port.onMessage.addListener(onPortMessage);
+  port.onDisconnect.addListener(onPortDisconnect);
 
-window.addEventListener(bridgeEvents.STOP, (event) => {
-  if (port) {
+  function onBridgeStop () {
+    console.log(bridgeEvents.STOP);
     port.disconnect();
+    clearListeners();
   }
-});
 
-window.addEventListener(bridgeEvents.SEND, (event) => {
-  if (port) {
-    port.postMessage(event.detail);
+  function onBridgeMessage(event) {
+    try {
+      port.postMessage(event.detail);
+    } catch (err) {
+      console.log(err);
+    }
   }
+
+  function clearListeners() {
+    window.removeEventListener(bridgeEvents.STOP, onBridgeStop);
+    window.removeEventListener(bridgeEvents.SEND, onBridgeMessage);
+  }
+
+  window.addEventListener(bridgeEvents.STOP, onBridgeStop);
+  window.addEventListener(bridgeEvents.SEND, onBridgeMessage);
+
+  window.dispatchEvent(new CustomEvent(bridgeEvents.CONNECTED, { 'detail': createMessage({ version }) }));
 });
