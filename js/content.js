@@ -16,14 +16,14 @@ function createMessage(msg) {
 }
 
 window.addEventListener(bridgeEvents.CONNECT, (event) => {
-  const mode = event.detail.mode; // HTTP vs BROWSER
-  const app = mode === 'BROWSER' ? 'loadster-browser-recorder' : 'loadster-http-recorder';
+  const portName = event.detail.name;
   const { version } = browser.runtime.getManifest();
-  const port = browser.runtime.connect({ name: app }); // see service-worker.js => browser.runtime.onConnect
+  const port = browser.runtime.connect({ name: portName }); // see service-worker.js => browser.runtime.onConnect
 
-  console.log(bridgeEvents.CONNECTED, port, app);
+  console.log(bridgeEvents.CONNECTED, port, portName);
 
   function onPortMessage(msg) {
+    const app = portName;
     const responseEvent = new CustomEvent(msg.type, {
       'detail': createMessage({ ...msg, app, version })
     });
