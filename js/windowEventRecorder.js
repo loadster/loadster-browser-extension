@@ -38,14 +38,19 @@
       'id',
       'style'
     ];
-    let attrRegexFilter = options.attrRegExp ? new RegExp(options.attrRegExp) : null;
+    const attrRegexFilter = options.attrRegExp ? new RegExp(options.attrRegExp) : null;
+    const idRegexFilter = options.idRegExp ? new RegExp(options.idRegExp) : null;
+
     /*
      * We explicitly catch any errors and swallow them, as none node-type events are also ingested.
      * for these events we cannot generate selectors, which is OK
      */
     try {
       let selector = finder(e.target, {
-        'idName': (name) => true,
+        'idName': (name) => {
+          if (idRegexFilter && idRegexFilter.test(name)) return false;
+          return true;
+        },
         'className': (name) => true, // !name.startsWith('is-') etc.
         'tagName': (name) => true,
         'attr': (name, value) => {
