@@ -31,8 +31,6 @@
       return;
     }
 
-    console.log(e);
-
     const attrFilter = [
       'class',
       'id',
@@ -90,6 +88,12 @@
         }
       }
 
+      const textContent = e.target.textContent.trim()
+      let textSelector = ''
+      if (!e.target.children.length && textContent) {
+        textSelector = `text=${textContent}`
+      }
+
       const msg = {
         'timestamp': Date.now(),
         selector,
@@ -104,6 +108,7 @@
           'meta': e.metaKey
         },
         'textContent': e.target.textContent,
+        'textSelector': textSelector,
         'href': e.target.href ? e.target.href : null
       };
 
@@ -115,7 +120,6 @@
 
   const events = Object.values(windowEventsToRecord);
   events.forEach((type) => {
-    console.log(type);
     window.addEventListener(type, recordEvent, true);
   });
 
