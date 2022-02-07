@@ -1,36 +1,49 @@
+const state = {
+  enabled: true
+};
+
 /*
  *
  * Add an event listener to activate the toggle switch in the UI
  *
  */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const toggle = document.querySelector('#toggle');
 
   if (toggle) {
-    refreshToggle(isEnabled());
+    await updateState();
 
-    toggle.onmousedown = function (event) {
-      if (isEnabled()) {
-        setEnabled(false);
+    toggle.addEventListener('click', async function (event) {
+      event.preventDefault();
+
+      if (state.enabled) {
+        await setEnabled(false);
         refreshToggle(false);
       } else {
-        setEnabled(true);
+        await setEnabled(true);
         refreshToggle(true);
       }
 
-      event.preventDefault();
       return false;
-    };
+    });
   }
 });
 
 /*
  *
- * Checks local storage to see if recording is enabled
+ * Checks browser storage to see if recording is enabled
  *
  */
-function isEnabled() {
-  return localStorage['loadster.recording.enabled'] == 'true';
+async function updateState() {
+  const storage = await browser.storage.local.get(['loadster.recording.enabled']);
+
+  state.enabled = storage['loadster.recording.enabled'];
+
+  if (state.enabled === undefined) {
+    setEnabled(true);
+  }
+
+  refreshToggle(state.enabled);
 }
 
 /*
@@ -38,12 +51,10 @@ function isEnabled() {
  * Updates local storage when recording is enabled/disabled
  *
  */
-function setEnabled(enabled) {
-  if (enabled) {
-    localStorage['loadster.recording.enabled'] = 'true';
-  } else {
-    localStorage['loadster.recording.enabled'] = 'false';
-  }
+async function setEnabled(enabled) {
+  await browser.storage.local.set({ 'loadster.recording.enabled': enabled });
+
+  state.enabled = enabled;
 }
 
 /*
@@ -52,8 +63,8 @@ function setEnabled(enabled) {
  *
  */
 function refreshToggle(enabled) {
-  const toggle = document.querySelector('#toggle'),
-    status = document.querySelector('#status');
+  const toggle = document.querySelector('#toggle');
+  const status = document.querySelector('#status');
 
   if (enabled) {
     toggle.className = 'toggle on';
