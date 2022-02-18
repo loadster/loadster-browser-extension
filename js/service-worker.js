@@ -1,4 +1,8 @@
-// import './browser-polyfill.min.js'; // TODO v3 migration
+try {
+  importScripts('./browser-polyfill.min.js'); // v3
+} catch (err) {
+  console.log(err); // v2
+}
 
 const BLINK_TITLE = 'loadster_blink_title';
 const NAVIGATE_URL = 'Url';
@@ -197,6 +201,9 @@ class HttpRecorder extends Recorder {
 
   injectForegroundScripts = async (tabId) => {
     super.injectForegroundScripts(tabId);
+    const { manifest_version } = browser.runtime.getManifest();
+
+    console.log({ manifest_version });
 
     try {
       await browser.tabs.sendMessage(tabId, {
@@ -206,19 +213,21 @@ class HttpRecorder extends Recorder {
     } catch (err) {
       console.log('content scripts not found. injecting...: ', err);
       try {
-        // TODO v3 migration
-        // await browser.scripting.executeScript({
-        //   target: {
-        //     tabId,
-        //     allFrames: true
-        //   },
-        //   files: [
-        //     'js/browser-polyfill.min.js',
-        //     'js/blinker.js',
-        //   ],
-        // });
-        await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js' });
-        await browser.tabs.executeScript(tabId, { file: 'js/blinker.js' });
+        if (manifest_version === 3) {
+          await browser.scripting.executeScript({
+            target: {
+              tabId,
+              allFrames: true
+            },
+            files: [
+              'js/browser-polyfill.min.js',
+              'js/blinker.js',
+            ],
+          });
+        } else {
+          await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js' });
+          await browser.tabs.executeScript(tabId, { file: 'js/blinker.js' });
+        }
 
         console.log('content scripts are ready', tabId);
       } catch (err) {
