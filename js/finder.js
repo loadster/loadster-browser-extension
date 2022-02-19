@@ -412,7 +412,6 @@
     return output;
   }
 
-  console.log(finder);
   window.loadster_recording_finder = finder;
   return finder;
 }());
