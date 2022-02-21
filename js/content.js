@@ -6,8 +6,6 @@ const bridgeEvents = {
   'STOP': 'loadster_stop_recording',
 };
 
-console.log('content script!');
-
 function createMessage(msg) {
   // Firefox security issue
   const output = typeof cloneInto !== 'undefined' ? cloneInto(msg, window, { 'cloneFunctions': true }) : msg;
@@ -20,7 +18,7 @@ window.addEventListener(bridgeEvents.CONNECT, (event) => {
   const { version } = browser.runtime.getManifest();
   const port = browser.runtime.connect({ name: portName }); // see service-worker.js => browser.runtime.onConnect
 
-  console.log(bridgeEvents.CONNECTED, port, portName);
+  // console.log(bridgeEvents.CONNECTED, port, portName);
 
   function onPortMessage(msg) {
     const app = portName;
@@ -38,7 +36,6 @@ window.addEventListener(bridgeEvents.CONNECT, (event) => {
   port.onDisconnect.addListener(onPortDisconnect);
 
   function onBridgeStop () {
-    console.log(bridgeEvents.STOP);
     port.disconnect();
     clearListeners();
   }
@@ -47,7 +44,7 @@ window.addEventListener(bridgeEvents.CONNECT, (event) => {
     try {
       port.postMessage(event.detail);
     } catch (err) {
-      console.log(err);
+      // console.log(err);
     }
   }
 

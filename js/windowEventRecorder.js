@@ -16,13 +16,12 @@
 
   const sendMessage = (msg) => {
     try {
-      console.log(msg);
       browser.runtime.sendMessage({
         'type': USER_ACTION,
         'value': msg
       });
     } catch (err) {
-      console.log(err);
+      // console.log(err);
     }
   };
 
@@ -114,7 +113,7 @@
 
       sendMessage(msg);
     } catch (e) {
-      console.log(e.message);
+      // console.log(e.message);
     }
   };
 
