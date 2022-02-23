@@ -200,7 +200,7 @@ class HttpRecorder extends Recorder {
   }
 
   injectForegroundScripts = async (tabId) => {
-    super.injectForegroundScripts(tabId);
+    await super.injectForegroundScripts(tabId);
     const { manifest_version } = browser.runtime.getManifest();
 
     console.log({ manifest_version });
@@ -385,7 +385,7 @@ class BrowserRecorder extends Recorder {
   }
 
   async injectForegroundScripts(tabId) {
-    super.injectForegroundScripts(tabId);
+    await super.injectForegroundScripts(tabId);
 
     try {
       await browser.tabs.sendMessage(tabId, {
@@ -395,22 +395,27 @@ class BrowserRecorder extends Recorder {
     } catch (err) {
       console.log('content scripts not found. injecting... ', err);
       try {
-        // await browser.scripting.executeScript({
-        //   target: {
-        //     tabId,
-        //     allFrames: true
-        //   },
-        //   files: [
-        //     'js/browser-polyfill.min.js',
-        //     'js/finder.js',
-        //     'js/blinker.js',
-        //     'js/windowEventRecorder.js'
-        //   ],
-        // });
-        await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js' });
-        await browser.tabs.executeScript(tabId, { file: 'js/blinker.js' });
-        await browser.tabs.executeScript(tabId, { file: 'js/finder.js' });
-        await browser.tabs.executeScript(tabId, { file: 'js/windowEventRecorder.js' });
+        const { manifest_version } = browser.runtime.getManifest();
+
+        if (manifest_version === 3) {
+          await browser.scripting.executeScript({
+            target: {
+              tabId,
+              allFrames: true
+            },
+            files: [
+              'js/browser-polyfill.min.js',
+              'js/finder.js',
+              'js/blinker.js',
+              'js/windowEventRecorder.js'
+            ],
+          });
+        } else {
+          await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js' });
+          await browser.tabs.executeScript(tabId, { file: 'js/blinker.js' });
+          await browser.tabs.executeScript(tabId, { file: 'js/finder.js' });
+          await browser.tabs.executeScript(tabId, { file: 'js/windowEventRecorder.js' });
+        }
 
         console.log('content scripts are ready', tabId);
       } catch (err) {
