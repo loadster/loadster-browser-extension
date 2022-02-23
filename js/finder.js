@@ -413,6 +413,7 @@
   }
 
   window.loadster_recording_finder = finder;
-  return finder;
+
+  return true;
 }());
 
