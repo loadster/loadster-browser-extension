@@ -132,6 +132,8 @@
       enabled = false;
     }
   });
+
+  return true;
 }(window.loadster_recording_finder));
 
 
