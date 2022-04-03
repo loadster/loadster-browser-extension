@@ -411,7 +411,6 @@ class BrowserRecorder extends Recorder {
             ],
           });
         } else {
-          await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js' });
           await browser.tabs.executeScript(tabId, { file: 'js/blinker.js' });
           await browser.tabs.executeScript(tabId, { file: 'js/finder.js' });
           await browser.tabs.executeScript(tabId, { file: 'js/windowEventRecorder.js' });
