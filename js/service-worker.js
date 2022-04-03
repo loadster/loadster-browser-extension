@@ -411,9 +411,10 @@ class BrowserRecorder extends Recorder {
             ],
           });
         } else {
+          await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js', allFrames: true });
           await browser.tabs.executeScript(tabId, { file: 'js/blinker.js' });
-          await browser.tabs.executeScript(tabId, { file: 'js/finder.js' });
-          await browser.tabs.executeScript(tabId, { file: 'js/windowEventRecorder.js' });
+          await browser.tabs.executeScript(tabId, { file: 'js/finder.js', allFrames: true });
+          await browser.tabs.executeScript(tabId, { file: 'js/windowEventRecorder.js', allFrames: true });
         }
 
         console.log('content scripts are ready', tabId);
