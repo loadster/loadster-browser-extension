@@ -16,10 +16,8 @@ const OPTIONS = 'loadster_recording_options';
 
 console.log('service-worker!');
 
-async function isEnabled() {
-  const storage = await browser.storage.local.get(['loadster.recording.enabled']);
-
-  return storage['loadster.recording.enabled'];
+async function setEnabled(value) {
+  await browser.storage.local.set({ 'loadster.recording.enabled': value });
 }
 
 function generateId(prefix) {
@@ -49,17 +47,16 @@ class Recorder {
   }
 
   onPortMessage = async (msg) => {
-    const enabled = await isEnabled();
-
     if (msg.type === OPTIONS) {
       Object.assign(this.recordingOptions, msg.value || {});
     } else if (msg.type === PING) {
       this.blinkTitle();
       this.pingRecording();
 
-      this.port.postMessage({ type: PONG, enabled });
+      this.port.postMessage({ type: PONG, enabled: true });
     } else if (msg.type === NAVIGATE_URL) {
       await this.createFirstTab(msg.value);
+      await setEnabled(true);
     } else {
       console.log('got unexpected message: ', msg);
     }
@@ -99,6 +96,8 @@ class Recorder {
     this.tabIds.forEach(id => this.stopBlinkingTitle(id));
 
     this.port.onMessage.removeListener(this.onPortMessage);
+
+    setEnabled(false);
   }
 
   async injectForegroundScripts(tabId) {
@@ -341,8 +340,7 @@ class HttpRecorder extends Recorder {
   }
 
   async uploadRequest(request, id) {
-    const enabled = await isEnabled();
-    if (enabled && this.tabIds.includes(request.tabId)) {
+    if (this.tabIds.includes(request.tabId)) {
       try {
         console.log(`uploadRequest to port: ${this.port.name}`, request);
         await this.port.postMessage({
@@ -425,8 +423,7 @@ class BrowserRecorder extends Recorder {
   }
 
   async uploadBrowserEvent(event) {
-    const enabled = await isEnabled();
-    if (enabled && this.tabIds.includes(event.tabId)) {
+    if (this.tabIds.includes(event.tabId)) {
       console.log('uploadBrowserEvent', this.tabIds, event);
       try {
         await this.port.postMessage({
