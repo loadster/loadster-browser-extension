@@ -122,6 +122,7 @@
   };
 
   const events = Object.values(windowEventsToRecord);
+
   events.forEach((type) => {
     window.addEventListener(type, recordEvent, true);
   });

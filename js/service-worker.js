@@ -382,24 +382,28 @@ class BrowserRecorder extends Recorder {
     this.port.onDisconnect.removeListener(this.removeListeners);
   }
 
-  async injectForegroundScripts(tabId) {
+  async injectForegroundScripts(tabId, frameId = null) {
     await super.injectForegroundScripts(tabId);
 
     try {
-      await browser.tabs.sendMessage(tabId, {
-        text: 'loadster-content-scripts'
-      });
-      console.log('content scripts are already loaded.. tabId:', tabId);
+      await browser.tabs.sendMessage(tabId, { text: 'loadster-content-scripts' }, { frameId });
+
+      console.log(`content scripts are already loaded... tabId: ${tabId}, frameId: ${frameId}`);
     } catch (err) {
-      console.log('content scripts not found. injecting... ', err);
+      console.log(`content scripts not found. injecting into tabId: ${tabId}, frameId: ${frameId}`, err);
+
       try {
         const { manifest_version } = browser.runtime.getManifest();
+        const allFrames = !frameId;
 
         if (manifest_version === 3) {
+          const frameIds = frameId ? [frameId] : null;
+
           await browser.scripting.executeScript({
             target: {
               tabId,
-              allFrames: true
+              frameIds,
+              allFrames
             },
             files: [
               'js/browser-polyfill.min.js',
@@ -409,13 +413,13 @@ class BrowserRecorder extends Recorder {
             ],
           });
         } else {
-          await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js', allFrames: true });
+          await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js', frameId, allFrames });
           await browser.tabs.executeScript(tabId, { file: 'js/blinker.js' });
-          await browser.tabs.executeScript(tabId, { file: 'js/finder.js', allFrames: true });
-          await browser.tabs.executeScript(tabId, { file: 'js/windowEventRecorder.js', allFrames: true });
+          await browser.tabs.executeScript(tabId, { file: 'js/finder.js', frameId, allFrames });
+          await browser.tabs.executeScript(tabId, { file: 'js/windowEventRecorder.js', frameId, allFrames });
         }
 
-        console.log('content scripts are ready', tabId);
+        console.log('content scripts are ready', tabId, frameId);
       } catch (err) {
         console.log(err);
       }
@@ -442,14 +446,21 @@ class BrowserRecorder extends Recorder {
   }
 
   navigationCommitted = (details) => {
-    const { tabId, ...data } = details;
-    const ignoredTransitions = ['auto_subframe', 'manual_subframe'];
+    const { tabId, frameId, ...data } = details;
+    const subframeTransitions = ['auto_subframe', 'manual_subframe'];
 
-    if (!ignoredTransitions.includes(data.transitionType) && this.tabIds.includes(tabId)) {
-      console.log('navigationCommitted', details, this.tabIds);
-      const action = 'navigate';
+    if (this.tabIds.includes(tabId)) {
+      if (subframeTransitions.includes(data.transitionType)) {
+        console.log('navigationCommitted in sub-frame', frameId, details);
 
-      this.uploadBrowserEvent({ action, data, tabId });
+        this.injectForegroundScripts(tabId, frameId);
+      } else {
+        console.log('navigationCommitted', details, this.tabIds);
+
+        const action = 'navigate';
+
+        this.uploadBrowserEvent({action, data, tabId});
+      }
     }
   }
 
