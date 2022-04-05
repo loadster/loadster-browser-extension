@@ -414,7 +414,7 @@ class BrowserRecorder extends Recorder {
           });
         } else {
           await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js', frameId, allFrames });
-          await browser.tabs.executeScript(tabId, { file: 'js/blinker.js' });
+          await browser.tabs.executeScript(tabId, { file: 'js/blinker.js', frameId, allFrames });
           await browser.tabs.executeScript(tabId, { file: 'js/finder.js', frameId, allFrames });
           await browser.tabs.executeScript(tabId, { file: 'js/windowEventRecorder.js', frameId, allFrames });
         }
@@ -447,7 +447,7 @@ class BrowserRecorder extends Recorder {
 
   navigationCommitted = (details) => {
     const { tabId, frameId, ...data } = details;
-    const subframeTransitions = ['auto_subframe', 'manual_subframe'];
+    const subframeTransitions = ['auto_subframe', 'manual_subframe', 'link'];
 
     if (this.tabIds.includes(tabId)) {
       if (subframeTransitions.includes(data.transitionType)) {
