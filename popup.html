@@ -56,97 +56,74 @@
         background: #2D2D2D;
         clear: both;
         margin: 0 0;
-        padding: 40px 0;
+        padding: 30px 0;
         width: 100%;
       }
 
-      .toggle {
-        width: 140px;
-        height: 50px;
-        margin: auto;
-        border-radius: 25px;
-        transition: all 150ms ease-in-out;
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
+      @keyframes pulsate {
+        0% {
+          opacity: 1.0;
+        }
+        50% {
+          opacity: 0.0;
+        }
+        100% {
+          opacity: 1.0;
+        }
+      }
+
+      #rec {
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
         background: rgba(32, 32, 32, 1);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 5px;
       }
 
-      .toggle .switch {
-        width: 60%;
-        height: 100%;
-        transition: all 150ms ease-in-out;
-        position: relative;
+      .rec-led {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #e54904;
+        opacity: 0;
+      }
+      #status-panel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
-      .toggle .switch .bevel {
-        background: rgb(154, 214, 206);
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        bottom: 4px;
-        left: 4px;
-        border-radius: 22px;
-        transition: background 150ms ease-in-out;
-      }
-      .toggle.off .switch .bevel {
-        background: rgb(128, 128, 128);
+      #status-panel.enabled .rec-led {
+        animation: pulsate 1s none;
+        animation-iteration-count: infinite;
       }
 
-      .toggle .switch .bevel:hover {
-        transition: background 100ms ease-out;
+      #status-panel.enabled #status {
+        color: #fff;
       }
+      #status-panel
 
-      .toggle.on .switch .bevel:hover {
-        background: rgb(184, 244, 236);
+      #status-panel.enabled #status .on,
+      #status-panel #status .off {
+        display: inline;
       }
-
-      .toggle.off .switch .bevel:hover {
-        background: rgb(158, 158, 158);
+      #status-panel #status .on,
+      #status-panel.enabled #status .off {
+        display: none;
       }
-
-      .toggle.on .switch {
-        margin-left: 0;
-      }
-
-      .toggle.off .switch {
-        margin-left: 40%;
+      #status:after {
+        content: attr(data-status-text);
       }
 
       #status {
-        text-align: center;
         text-transform: uppercase;
-        font-size: 9px;
+        font-size: 10px;
         font-weight: bold;
-        color: #fff;
-        margin-top: 1em;
-        transition: color 150ms ease-in-out;
-      }
-
-      #status.off {
         color: #808080;
-      }
-
-      #status.on .on {
-        display: inline;
-      }
-
-      #status.on .off {
-        display: none;
-      }
-
-      #status.off .on {
-        display: none;
-      }
-
-      #status.off .off {
-        display: inline;
-      }
-
-      .description {
-        color: #444444;
-        font-size: 80%;
-        padding: 10px;
       }
 
       @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
@@ -163,26 +140,16 @@
     <script src="js/popup.js"></script>
   </head>
   <body>
-
-    <div class="panel">
-      <div id="toggle" class="toggle on">
-        <div id="switch" class="switch">
-          <div class="bevel"></div>
-        </div>
+    <div id="status-panel" class="panel">
+      <div id="rec">
+        <div class="rec-led"></div>
       </div>
-      <div id="status">Recording
-        <span class="on"> Enabled</span>
-        <span class="off"> Disabled</span>
-      </div>
+      <div id="status" data-status-text="Recording"></div>
     </div>
     <div class="logo-bar">
       <a href="https://loadster.app" target="_blank" class="logo" id="loadster"></a>
       <a href="https://speedway.app" target="_blank" class="logo" id="speedway"></a>
     </div>
-
-    <!-- <div class="description">
-      When enabled, your browser traffic will be shared with Loadster for recording test scripts.
-    </div> -->
   </body>
 </html>
 

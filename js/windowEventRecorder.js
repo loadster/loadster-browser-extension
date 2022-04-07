@@ -64,6 +64,8 @@
         attrs[x[i].name] = x[i].value;
       }
 
+      let frameSelector = '';
+
       if (window.parent !== window) {
         let frame = window;
         const frameTag = window.frameElement ? window.frameElement.tagName.toLowerCase() : 'iframe';
@@ -71,14 +73,14 @@
         if (frame.name) {
           attrs.frameName = frame.name;
 
-          selector = `${frameTag}[name="${frame.name}"] ${selector}`;
+          frameSelector = `${frameTag}[name="${frame.name}"] ${frameSelector}`;
         } else {
           while (frame.parent !== frame) {
             for (let i = 0; i < frame.parent.frames.length; i++) {
               if (frame.parent.frames[i] === frame) {
                 attrs.frameIndex = i;
 
-                selector = `${frameTag}[${i}] ${selector}`;
+                frameSelector = `${frameTag}[${i}] ${frameSelector}`.trim();
               }
             }
 
@@ -87,10 +89,12 @@
         }
       }
 
-      const textContent = e.target.textContent.trim()
-      let textSelector = ''
+      selector = `${frameSelector} ${selector}`.trim();
+
+      const textContent = e.target.textContent.trim();
+      let textSelector = '';
       if (!e.target.children.length && textContent) {
-        textSelector = `text=${textContent}`
+        textSelector = `${frameSelector} text=${textContent}`.trim();
       }
 
       const msg = {
@@ -118,6 +122,7 @@
   };
 
   const events = Object.values(windowEventsToRecord);
+
   events.forEach((type) => {
     window.addEventListener(type, recordEvent, true);
   });

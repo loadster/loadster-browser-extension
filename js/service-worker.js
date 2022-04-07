@@ -16,10 +16,8 @@ const OPTIONS = 'loadster_recording_options';
 
 console.log('service-worker!');
 
-async function isEnabled() {
-  const storage = await browser.storage.local.get(['loadster.recording.enabled']);
-
-  return storage['loadster.recording.enabled'];
+async function setEnabled(value) {
+  await browser.storage.local.set({ 'loadster.recording.enabled': value });
 }
 
 function generateId(prefix) {
@@ -49,17 +47,16 @@ class Recorder {
   }
 
   onPortMessage = async (msg) => {
-    const enabled = await isEnabled();
-
     if (msg.type === OPTIONS) {
       Object.assign(this.recordingOptions, msg.value || {});
     } else if (msg.type === PING) {
       this.blinkTitle();
       this.pingRecording();
 
-      this.port.postMessage({ type: PONG, enabled });
+      this.port.postMessage({ type: PONG, enabled: true });
     } else if (msg.type === NAVIGATE_URL) {
       await this.createFirstTab(msg.value);
+      await setEnabled(true);
     } else {
       console.log('got unexpected message: ', msg);
     }
@@ -99,6 +96,8 @@ class Recorder {
     this.tabIds.forEach(id => this.stopBlinkingTitle(id));
 
     this.port.onMessage.removeListener(this.onPortMessage);
+
+    setEnabled(false);
   }
 
   async injectForegroundScripts(tabId) {
@@ -341,8 +340,7 @@ class HttpRecorder extends Recorder {
   }
 
   async uploadRequest(request, id) {
-    const enabled = await isEnabled();
-    if (enabled && this.tabIds.includes(request.tabId)) {
+    if (this.tabIds.includes(request.tabId)) {
       try {
         console.log(`uploadRequest to port: ${this.port.name}`, request);
         await this.port.postMessage({
@@ -384,24 +382,28 @@ class BrowserRecorder extends Recorder {
     this.port.onDisconnect.removeListener(this.removeListeners);
   }
 
-  async injectForegroundScripts(tabId) {
+  async injectForegroundScripts(tabId, frameId = null) {
     await super.injectForegroundScripts(tabId);
 
     try {
-      await browser.tabs.sendMessage(tabId, {
-        text: 'loadster-content-scripts'
-      });
-      console.log('content scripts are already loaded.. tabId:', tabId);
+      await browser.tabs.sendMessage(tabId, { text: 'loadster-content-scripts' }, { frameId });
+
+      console.log(`content scripts are already loaded... tabId: ${tabId}, frameId: ${frameId}`);
     } catch (err) {
-      console.log('content scripts not found. injecting... ', err);
+      console.log(`content scripts not found. injecting into tabId: ${tabId}, frameId: ${frameId}`, err);
+
       try {
         const { manifest_version } = browser.runtime.getManifest();
+        const allFrames = !frameId;
 
         if (manifest_version === 3) {
+          const frameIds = frameId ? [frameId] : null;
+
           await browser.scripting.executeScript({
             target: {
               tabId,
-              allFrames: true
+              frameIds,
+              allFrames
             },
             files: [
               'js/browser-polyfill.min.js',
@@ -411,13 +413,13 @@ class BrowserRecorder extends Recorder {
             ],
           });
         } else {
-          await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js' });
-          await browser.tabs.executeScript(tabId, { file: 'js/blinker.js' });
-          await browser.tabs.executeScript(tabId, { file: 'js/finder.js' });
-          await browser.tabs.executeScript(tabId, { file: 'js/windowEventRecorder.js' });
+          await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js', frameId, allFrames });
+          await browser.tabs.executeScript(tabId, { file: 'js/blinker.js', frameId, allFrames });
+          await browser.tabs.executeScript(tabId, { file: 'js/finder.js', frameId, allFrames });
+          await browser.tabs.executeScript(tabId, { file: 'js/windowEventRecorder.js', frameId, allFrames });
         }
 
-        console.log('content scripts are ready', tabId);
+        console.log('content scripts are ready', tabId, frameId);
       } catch (err) {
         console.log(err);
       }
@@ -425,8 +427,7 @@ class BrowserRecorder extends Recorder {
   }
 
   async uploadBrowserEvent(event) {
-    const enabled = await isEnabled();
-    if (enabled && this.tabIds.includes(event.tabId)) {
+    if (this.tabIds.includes(event.tabId)) {
       console.log('uploadBrowserEvent', this.tabIds, event);
       try {
         await this.port.postMessage({
@@ -445,14 +446,21 @@ class BrowserRecorder extends Recorder {
   }
 
   navigationCommitted = (details) => {
-    const { tabId, ...data } = details;
-    const ignoredTransitions = ['auto_subframe', 'manual_subframe'];
+    const { tabId, frameId, ...data } = details;
+    const subframeTransitions = ['auto_subframe', 'manual_subframe', 'link'];
 
-    if (!ignoredTransitions.includes(data.transitionType) && this.tabIds.includes(tabId)) {
-      console.log('navigationCommitted', details, this.tabIds);
-      const action = 'navigate';
+    if (this.tabIds.includes(tabId)) {
+      if (subframeTransitions.includes(data.transitionType)) {
+        console.log('navigationCommitted in sub-frame', frameId, details);
 
-      this.uploadBrowserEvent({ action, data, tabId });
+        this.injectForegroundScripts(tabId, frameId);
+      } else {
+        console.log('navigationCommitted', details, this.tabIds);
+
+        const action = 'navigate';
+
+        this.uploadBrowserEvent({action, data, tabId});
+      }
     }
   }
 
