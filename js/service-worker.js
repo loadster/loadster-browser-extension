@@ -106,12 +106,15 @@ class Recorder {
 
   async createFirstTab(url) {
     console.log('initial tab url:', url);
+
     const tab = await browser.tabs.create({
       url,
       active: true,
     });
 
     this.tabIds.push(tab.id);
+
+    return tab.id;
   }
 
   pingRecording() {
@@ -409,6 +412,12 @@ class BrowserRecorder extends Recorder {
     }
   }
 
+  async createFirstTab(url) {
+    const tabId = await super.createFirstTab(url);
+
+    await this.uploadBrowserEvent({action: 'navigate', tabId, data: { url }});
+  }
+
   async uploadBrowserEvent(event) {
     if (this.tabIds.includes(event.tabId)) {
       console.log('uploadBrowserEvent', this.tabIds, event);
@@ -429,20 +438,15 @@ class BrowserRecorder extends Recorder {
   }
 
   navigationCommitted = (details) => {
-    const { tabId, frameId, ...data } = details;
-    const subframeTransitions = ['auto_subframe', 'manual_subframe', 'link'];
+    const { tabId, frameId, frameType, transitionType, ...data } = details;
 
     if (this.tabIds.includes(tabId)) {
-      if (subframeTransitions.includes(data.transitionType)) {
-        console.log('navigationCommitted in sub-frame', frameId, details);
+      console.log(`navigationCommitted of type ${transitionType} in ${frameType} ${frameId}`, details);
 
-        this.injectForegroundScripts(tabId, frameId);
-      } else {
-        console.log('navigationCommitted', details, this.tabIds);
+      this.injectForegroundScripts(tabId, frameId);
 
-        const action = 'navigate';
-
-        this.uploadBrowserEvent({action, data, tabId});
+      if (frameType === 'outermost_frame' && transitionType === 'typed') {
+        this.uploadBrowserEvent({action: 'navigate', data, tabId});
       }
     }
   }
