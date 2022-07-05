@@ -1,14 +1,11 @@
 function refreshUI (enabled = false) {
   const containerEl = document.getElementById('status-panel');
-  const statusEl = document.getElementById('status');
 
-  if (containerEl && statusEl) {
+  if (containerEl) {
     if (enabled) {
       containerEl.className = 'panel enabled';
-      statusEl.setAttribute('data-status-text', 'Recording Enabled');
     } else {
       containerEl.className = 'panel disabled';
-      statusEl.setAttribute('data-status-text', 'Recording Disabled');
     }
   }
 }

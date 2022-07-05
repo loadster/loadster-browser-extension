@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Loadster Recorder",
   "description": "Create test scripts to run in Loadster and Speedway.",
-  "version": "20",
+  "version": "21",
   "icons": {
     "16": "images/icon-16x16.png",
     "32": "images/icon-32x32.png",

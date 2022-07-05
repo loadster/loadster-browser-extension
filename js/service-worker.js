@@ -471,3 +471,20 @@ browser.runtime.onConnect.addListener((port) => {
     new BrowserRecorder(port);
   }
 });
+
+browser.runtime.onInstalled.addListener(async (details) => {
+  const manifest = browser.runtime.getManifest()
+
+  for (const cs of manifest.content_scripts) {
+    for (const tab of await browser.tabs.query({ url: cs.matches })) {
+      if (manifest.manifest_version === 3) {
+        browser.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: cs.js
+        });
+      } else {
+        await Promise.all(cs.js.map(file => browser.tabs.executeScript(tab.id, { file })))
+      }
+    }
+  }
+});

@@ -4,6 +4,7 @@ const bridgeEvents = {
   'DISCONNECTED': 'loadster_disconnected_extension',
   'SEND': 'loadster_post_message',
   'STOP': 'loadster_stop_recording',
+  'READY': 'loadster_recorder_ready'
 };
 
 function createMessage(msg) {
@@ -58,3 +59,5 @@ window.addEventListener(bridgeEvents.CONNECT, (event) => {
 
   window.dispatchEvent(new CustomEvent(bridgeEvents.CONNECTED, { 'detail': createMessage({ version }) }));
 });
+
+window.dispatchEvent(new CustomEvent(bridgeEvents.READY));
