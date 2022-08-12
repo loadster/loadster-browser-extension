@@ -94,7 +94,7 @@
         const textContent = e.target.textContent.trim();
         let textSelector = '';
         if (!e.target.children.length && textContent) {
-          const isUnique = Array.from(document.querySelectorAll(e.target.tagName)).filter(el => el.textContent.trim() === textContent).length === 1;
+          const isUnique = Array.from(document.body.querySelectorAll('*')).filter(el => el.textContent.trim() === textContent).length === 1;
 
           if (isUnique) {
             textSelector = `${frameSelector} text=${textContent}`.trim();
