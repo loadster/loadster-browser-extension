@@ -11,8 +11,43 @@
       'SELECT': 'select',
       'SUBMIT': 'submit'
     };
-    const options = {};
+    const filters = {
+      idName: [],
+      className: [],
+      tagName: [],
+      attr: [],
+    }
     let enabled = false;
+
+    function isValidRegex(str) {
+      let isValid = true;
+
+      try {
+        new RegExp(str);
+      } catch(e) {
+        isValid = false;
+      }
+
+      return isValid
+    }
+
+    function updateFilters(options = {}) {
+      const { attrRegExp, idRegExp, customPatterns } = options
+
+      if (attrRegExp && isValidRegex(attrRegExp)) {
+        filters.attr.push(new RegExp(attrRegExp))
+      }
+      if (idRegExp && isValidRegex(idRegExp)) {
+        filters.idName.push(new RegExp(idRegExp))
+      }
+      if (customPatterns && customPatterns.length) {
+        customPatterns.forEach(f => {
+          if (filters.hasOwnProperty(f.key) && f.value && f.value.trim() && isValidRegex(f.value)) {
+            filters[f.key].push(new RegExp(f.value))
+          }
+        })
+      }
+    }
 
     const sendMessage = (msg) => {
       try {
@@ -30,14 +65,6 @@
         return;
       }
 
-      const attrFilter = [
-        'class',
-        'id',
-        'style'
-      ];
-      const attrRegexFilter = options.attrRegExp ? new RegExp(options.attrRegExp) : null;
-      const idRegexFilter = options.idRegExp ? new RegExp(options.idRegExp) : null;
-
       /*
        * We explicitly catch any errors and swallow them, as none node-type events are also ingested.
        * for these events we cannot generate selectors, which is OK
@@ -45,15 +72,16 @@
       try {
         let selector = finder(e.target, {
           'idName': (name) => {
-            if (idRegexFilter && idRegexFilter.test(name)) return false;
-            return true;
+            return !filters.idName.some(p => p.test(name))
           },
-          'className': (name) => true, // !name.startsWith('is-') etc.
-          'tagName': (name) => true,
-          'attr': (name, value) => {
-            if (attrRegexFilter && attrRegexFilter.test(name)) return false;
-            if (attrFilter.includes(name)) return false;
-            return true;
+          'className': (name) => {
+            return !filters.className.some(p => p.test(name))
+          },
+          'tagName': (name) => {
+            return !filters.tagName.some(p => p.test(name))
+          },
+          'attr': (name) => {
+            return !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name))
           },
           'seedMinLength': 1, // Min 1
           'optimizedMinLength': 2 // Min 2
@@ -135,7 +163,7 @@
       if (msg.type === RECORDING && !enabled) {
         enabled = true;
         if (msg.options) {
-          Object.assign(options, msg.options);
+          updateFilters(msg.options)
         }
       } else if (msg.type === RECORDING_STOP) {
         enabled = false;
