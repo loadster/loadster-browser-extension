@@ -70,28 +70,6 @@
        * for these events we cannot generate selectors, which is OK
        */
       try {
-        let selector = finder(e.target, {
-          'idName': (name) => {
-            return !filters.idName.some(p => p.test(name))
-          },
-          'className': (name) => {
-            return !filters.className.some(p => p.test(name))
-          },
-          'tagName': (name) => {
-            return !filters.tagName.some(p => p.test(name))
-          },
-          'attr': (name) => {
-            return !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name))
-          },
-          'seedMinLength': 1, // Min 1
-          'optimizedMinLength': 2 // Min 2
-        });
-        const attrs = {};
-
-        for (let i = 0, x = e.target.attributes, n = x.length; i < n; i++) {
-          attrs[x[i].name] = x[i].value;
-        }
-
         let frameSelector = '';
 
         if (window.parent !== window) {
@@ -117,7 +95,28 @@
           }
         }
 
-        selector = `${frameSelector} ${selector}`.trim();
+        const selectors = finder(e.target, {
+          'idName': (value) => {
+            return !filters.idName.some(p => p.test(value))
+          },
+          'className': (value) => {
+            return !filters.className.some(p => p.test(value))
+          },
+          'tagName': (name) => {
+            return !filters.tagName.some(p => p.test(name))
+          },
+          'attr': (name, value) => {
+            return !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name)) && !filters.idName.some(p => p.test(value))
+          },
+          'seedMinLength': 1, // Min 1
+          'optimizedMinLength': 2 // Min 2
+        }).filter(sel => !!sel).map(sel => `${frameSelector} ${sel}`.trim());
+
+        const attrs = {};
+
+        for (let i = 0, x = e.target.attributes, n = x.length; i < n; i++) {
+          attrs[x[i].name] = x[i].value;
+        }
 
         const textContent = e.target.textContent.trim();
         let textSelector = '';
@@ -131,7 +130,8 @@
 
         const msg = {
           'timestamp': Date.now(),
-          selector,
+          selector: selectors[0], // bwd
+          selectors,
           'value': e.target.value,
           'tagName': e.target.tagName,
           'action': e.type,
