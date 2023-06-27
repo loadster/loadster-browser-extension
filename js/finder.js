@@ -11,6 +11,8 @@
     let config,
       rootDocument;
 
+    let altPaths = [];
+
     function finder (input, options) {
       if (input.nodeType !== Node.ELEMENT_NODE) {
         throw new Error('Can\'t generate CSS selector for non-element node type.');
@@ -33,18 +35,26 @@
       };
       config = Object.assign(Object.assign({}, defaults), options);
       rootDocument = findRootDocument(config.root, defaults);
+      altPaths = [];
       let path = bottomUpSearch(input, Limit.All, () => bottomUpSearch(input, Limit.Two, () => bottomUpSearch(input, Limit.One)));
 
       if (path) {
+        return getSelectors([path, ...altPaths], input)
+      }
+      throw new Error('Selector was not found.');
+    }
+
+    function getSelectors(paths, input) {
+      const results = new Set();
+      for (let path of paths) {
         const optimized = sort(optimize(path, input));
 
         if (optimized.length > 0) {
           path = optimized[0];
         }
-
-        return selector(path);
+        results.add(selector(path));
       }
-      throw new Error('Selector was not found.');
+      return [...results].slice(0, 10);
     }
 
     function findRootDocument (rootNode, defaults) {
@@ -119,10 +129,18 @@
         return fallback ? fallback() : null;
       }
 
+      const uniques = new Set();
+
       for (const candidate of paths) {
         if (unique(candidate)) {
-          return candidate;
+          uniques.add(candidate);
         }
+      }
+
+      if (uniques.size) {
+        const [first, ...rest] = uniques;
+        altPaths = rest;
+        return first;
       }
 
       return null;
