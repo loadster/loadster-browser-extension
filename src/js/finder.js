@@ -39,7 +39,7 @@
       let path = bottomUpSearch(input, Limit.All, () => bottomUpSearch(input, Limit.Two, () => bottomUpSearch(input, Limit.One)));
 
       if (path) {
-        return getSelectors([path, ...altPaths], input)
+        return getSelectors([path, ...altPaths], input);
       }
       throw new Error('Selector was not found.');
     }
@@ -391,6 +391,8 @@
           } else {
             value = '\\' + codePoint.toString(16).toUpperCase() + ' ';
           }
+
+          // eslint-disable-next-line no-control-regex
         } else if (/[\t\n\f\r\x0B]/.test(character)) {
           value = '\\' + codePoint.toString(16).toUpperCase() + ' ';
         } else if (character == '\\' || !isIdentifier && (character == '"' && quote == character || character == '\'' && quote == character) || isIdentifier && regexSingleEscape.test(character)) {

@@ -1,3 +1,12 @@
+import browser from "webextension-polyfill";
+import { sendMessage, onMessage } from "webext-bridge/content-script";
+
+
+
+const response = sendMessage("ACTION", {
+  data: { data: 124 }
+}, "background");
+
 const bridgeEvents = {
   'CONNECT': 'loadster_connect_extension',
   'CONNECTED': 'loadster_connected_extension',
@@ -9,7 +18,7 @@ const bridgeEvents = {
 
 function createMessage(msg) {
   // Firefox security issue
-  const output = typeof cloneInto !== 'undefined' ? cloneInto(msg, window, { 'cloneFunctions': true }) : msg;
+  const output = typeof window.cloneInto !== 'undefined' ? window.cloneInto(msg, window, { 'cloneFunctions': true }) : msg;
 
   return output;
 }
@@ -61,3 +70,7 @@ window.addEventListener(bridgeEvents.CONNECT, (event) => {
 });
 
 window.dispatchEvent(new CustomEvent(bridgeEvents.READY));
+
+console.log('content script22');
+
+

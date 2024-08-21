@@ -1,3 +1,5 @@
+import browser from "webextension-polyfill";
+
 function refreshUI (enabled = false) {
   const containerEl = document.getElementById('status-panel');
 
@@ -15,6 +17,8 @@ async function refreshState() {
   const storage = await browser.storage.local.get([storageKey]);
   refreshUI(storage[storageKey]);
 }
+
+
 
 document.addEventListener('DOMContentLoaded', refreshState);
 

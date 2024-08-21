@@ -42,6 +42,7 @@ class Recorder {
     this.tabIds = [];
     this.recordingOptions = {};
     this.tick = 0;
+    this.scriptsInjected = false;
 
     port.onMessage.addListener(this.onPortMessage);
   }
@@ -50,8 +51,8 @@ class Recorder {
     if (msg.type === OPTIONS) {
       Object.assign(this.recordingOptions, msg.value || {});
     } else if (msg.type === PING) {
-      this.blinkTitle();
-      this.pingRecording();
+      // this.blinkTitle();
+      // this.pingRecording();
 
       this.port.postMessage({ type: PONG, enabled: true });
     } else if (msg.type === NAVIGATE_URL) {
@@ -60,25 +61,27 @@ class Recorder {
     } else {
       console.log('got unexpected message: ', msg);
     }
-  }
+  };
 
   onCreatedTab = async (tab) => {
     if (this.tabIds.some(id => (id === tab.openerTabId && id !== tab.id))) {
       console.log('onCreatedTab', tab);
       this.tabIds.push(tab.id);
     }
-  }
+  };
 
   onUpdatedTab = async (tabId, changeInfo, tab) => {
     const completed = changeInfo.status === 'complete';
     const hasURL = /(http(s?)):\/\//i.test(tab.url);
     const fromPort = this.tabIds.includes(tabId);
 
-    if (completed && hasURL && fromPort) {
+    if (completed && hasURL && fromPort && !this.scriptsInjected) {
       console.log('onUpdatedTab', tab);
       await this.injectForegroundScripts(tabId);
+    } else {
+      console.log('not injecting scripts after update', { completed, hasURL, fromPort, injected: this.scriptsInjected });
     }
-  }
+  };
 
   onRemovedTab = (tabId) => {
     const index = this.tabIds.indexOf(tabId);
@@ -89,7 +92,7 @@ class Recorder {
       this.port.postMessage({ type: RECORDING_STOP, data: 'No pages open' });
       console.log('stopping..');
     }
-  }
+  };
 
   cleanup() {
     console.log(`removing listeners...`);
@@ -199,7 +202,7 @@ class HttpRecorder extends Recorder {
     browser.webRequest.onCompleted.removeListener(this.finishRequest);
 
     this.port.onDisconnect.removeListener(this.removeListeners);
-  }
+  };
 
   injectForegroundScripts = async (tabId) => {
     await super.injectForegroundScripts(tabId);
@@ -227,7 +230,7 @@ class HttpRecorder extends Recorder {
     } catch (err) {
       console.log(err);
     }
-  }
+  };
   //
   // Stores a request if we haven't seen it before; otherwise updates it.
   //
@@ -277,7 +280,7 @@ class HttpRecorder extends Recorder {
         console.error(err);
       }
     }
-  }
+  };
   //
   // Updates a request and checks if it's being redirected.
   //
@@ -287,7 +290,7 @@ class HttpRecorder extends Recorder {
     if (info.statusCode === 301 || info.statusCode === 302) {
       await this.requestRedirected(info);
     }
-  }
+  };
   //
   // Clones a request when it is redirected, marking the redirected one as complete and
   // keeping the original for further updates.
@@ -316,7 +319,7 @@ class HttpRecorder extends Recorder {
 
       delete this.requests[redirected.requestId];
     }
-  }
+  };
   //
   // Finishes a normal request, marking it completed.
   //
@@ -331,7 +334,7 @@ class HttpRecorder extends Recorder {
 
       delete this.requests[info.requestId];
     }
-  }
+  };
 
   async uploadRequest(request, id) {
     if (this.tabIds.includes(request.tabId)) {
@@ -374,7 +377,7 @@ class BrowserRecorder extends Recorder {
     browser.runtime.onMessage.removeListener(this.onRuntimeMessage);
 
     this.port.onDisconnect.removeListener(this.removeListeners);
-  }
+  };
 
   async injectForegroundScripts(tabId, frameId = null) {
     await super.injectForegroundScripts(tabId);
@@ -390,14 +393,30 @@ class BrowserRecorder extends Recorder {
           target: {
             tabId,
             frameIds,
-            allFrames
+            allFrames,
+          },
+          files: [
+            'js/finder.js',
+            'js/windowEventRecorder.js',
+            'js/event-interceptor.js'
+          ],
+          world: 'MAIN',
+          injectImmediately: true,
+        });
+        await browser.scripting.executeScript({
+          target: {
+            tabId,
+            frameIds,
+            allFrames,
           },
           files: [
             'js/browser-polyfill.min.js',
-            'js/finder.js',
             'js/blinker.js',
-            'js/windowEventRecorder.js'
+            // 'js/finder.js',
+            // 'js/windowEventRecorder.js',
           ],
+          // world: 'MAIN',
+          // injectImmediately: true
         });
       } else {
         await browser.tabs.executeScript(tabId, { file: 'js/browser-polyfill.min.js', frameId, allFrames });
@@ -406,16 +425,18 @@ class BrowserRecorder extends Recorder {
         await browser.tabs.executeScript(tabId, { file: 'js/windowEventRecorder.js', frameId, allFrames });
       }
 
-      console.log(`injected scripts into tab ${tabId} frame ${frameId || 'all'}`);
+      console.log(`injected scripts into tab ${tabId} frame ${frameId || 'all'}`, { allFrames });
+      this.scriptsInjected = true;
     } catch (err) {
       console.log(err);
+      this.scriptsInjected = false;
     }
   }
 
   async createFirstTab(url) {
     const tabId = await super.createFirstTab(url);
 
-    await this.uploadBrowserEvent({action: 'navigate', tabId, data: { url }});
+    await this.uploadBrowserEvent({ action: 'navigate', tabId, data: { url } });
   }
 
   async uploadBrowserEvent(event) {
@@ -443,13 +464,13 @@ class BrowserRecorder extends Recorder {
     if (this.tabIds.includes(tabId)) {
       console.log(`navigationCommitted of type ${transitionType} in ${frameType} ${frameId}`, details);
 
-      this.injectForegroundScripts(tabId, frameId);
+      // this.injectForegroundScripts(tabId, frameId);
 
       if (frameType === 'outermost_frame' && transitionType === 'typed') {
-        this.uploadBrowserEvent({action: 'navigate', data, tabId});
+        this.uploadBrowserEvent({ action: 'navigate', data, tabId });
       }
     }
-  }
+  };
 
   onRuntimeMessage = (msg, sender) => {
     if (msg.type === USER_ACTION) {
@@ -458,7 +479,103 @@ class BrowserRecorder extends Recorder {
 
       this.uploadBrowserEvent({ action, data, tabId });
     }
-  }
+  };
+}
+
+function getEventListenersForElement(tabId, elementId) {
+  chrome.debugger.attach({ tabId: tabId }, '1.0', () => {
+    chrome.debugger.sendCommand({ tabId: tabId }, 'Runtime.evaluate', {
+      expression: `
+        (function() {
+          const element = document.getElementById('${elementId}');
+          if (!element) return null;
+          const listeners = {};
+          const types = ['click', 'mouseover', 'keydown', 'keyup', 'change']; // Add more types as needed
+          types.forEach(type => {
+            const events = getEventListeners(element)[type];
+            if (events) {
+              listeners[type] = events.map(e => e.listener);
+            }
+          });
+          return listeners;
+        })()
+      `,
+      returnByValue: true
+    }, (response) => {
+      console.log('Event listeners for element:', response.result.value);
+      chrome.debugger.detach({ tabId: tabId });
+    });
+  });
+}
+
+// Attach to the tab and get event listeners for a specific element by ID
+function getElementEventListeners(tabId, elementId) {
+  chrome.debugger.attach({ tabId: tabId }, '1.0', () => {
+    // Get the node ID of the element with the specified ID
+    chrome.debugger.sendCommand({ tabId: tabId }, 'DOM.querySelector', {
+      nodeId: 1, // root node ID, usually 1
+      selector: `#${elementId}`
+    }, (response) => {
+      const nodeId = response.nodeId;
+
+      if (nodeId) {
+        // Retrieve event listeners for the node ID
+        chrome.debugger.sendCommand({ tabId: tabId }, 'DOM.getEventListenersForNode', {
+          nodeId: nodeId
+        }, (response) => {
+          console.log('Event listeners:', response.listeners);
+          chrome.debugger.detach({ tabId: tabId });
+        });
+      } else {
+        console.log(`Element with ID ${elementId} not found.`);
+        chrome.debugger.detach({ tabId: tabId });
+      }
+    });
+  });
+}
+
+// Example usage
+// chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+//   const tabId = tabs[0].id;
+//   getElementEventListeners(tabId, 'testing22');
+// });
+
+// chrome.action.onClicked.addListener(function (tab) {
+//   if (tab.url.startsWith('http')) {
+//     chrome.debugger.attach({ tabId: tab.id }, '1.2', function () {
+//       chrome.debugger.sendCommand(
+//         { tabId: tab.id },
+//         'Network.enable',
+//         {},
+//         function () {
+//           if (chrome.runtime.lastError) {
+//             console.error(chrome.runtime.lastError);
+//           }
+//         }
+//       );
+//     });
+//   } else {
+//     console.log('Debugger can only be attached to HTTP/HTTPS pages.');
+//   }
+// });
+
+// chrome.debugger.onEvent.addListener(function (source, method, params) {
+//   console.log(source, method, params);
+//   if (method === 'Network.responseReceived') {
+//     console.log('Response received:', params.response);
+//     // Perform your desired action with the response data
+//   }
+// });
+
+
+// Function to inject the external script into the page's context
+function injectScript() {
+  const script = document.createElement('script');
+  script.src = browser.runtime.getURL('js/event-interceptor.js');  // URL to the external script
+  document.documentElement.appendChild(script);
+  script.onload = function () {
+    this.remove();  // Remove the script element once loaded
+  };
 }
 
 browser.runtime.onConnect.addListener((port) => {
@@ -473,7 +590,7 @@ browser.runtime.onConnect.addListener((port) => {
 });
 
 browser.runtime.onInstalled.addListener(async (details) => {
-  const manifest = browser.runtime.getManifest()
+  const manifest = browser.runtime.getManifest();
 
   for (const cs of manifest.content_scripts) {
     for (const tab of await browser.tabs.query({ url: cs.matches })) {
@@ -483,7 +600,7 @@ browser.runtime.onInstalled.addListener(async (details) => {
           files: cs.js
         });
       } else {
-        await Promise.all(cs.js.map(file => browser.tabs.executeScript(tab.id, { file })))
+        await Promise.all(cs.js.map(file => browser.tabs.executeScript(tab.id, { file })));
       }
     }
   }

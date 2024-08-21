@@ -16,8 +16,11 @@
       className: [],
       tagName: [],
       attr: [],
-    }
-    let enabled = false;
+    };
+    let enabled = true;
+
+
+    console.log('windowEventRecorder injected', !window.loadster_event_recorder, finder);
 
     function isValidRegex(str) {
       let isValid = true;
@@ -28,35 +31,35 @@
         isValid = false;
       }
 
-      return isValid
+      return isValid;
     }
 
     function updateFilters(options = {}) {
-      const { attrRegExp, idRegExp, customPatterns } = options
+      const { attrRegExp, idRegExp, customPatterns } = options;
 
       if (attrRegExp && isValidRegex(attrRegExp)) {
-        filters.attr.push(new RegExp(attrRegExp))
+        filters.attr.push(new RegExp(attrRegExp));
       }
       if (idRegExp && isValidRegex(idRegExp)) {
-        filters.idName.push(new RegExp(idRegExp))
+        filters.idName.push(new RegExp(idRegExp));
       }
       if (customPatterns && customPatterns.length) {
         customPatterns.forEach(f => {
           if (filters.hasOwnProperty(f.key) && f.value && f.value.trim() && isValidRegex(f.value)) {
-            filters[f.key].push(new RegExp(f.value))
+            filters[f.key].push(new RegExp(f.value));
           }
-        })
+        });
       }
     }
 
     const sendMessage = (msg) => {
       try {
-        browser.runtime.sendMessage({
-          'type': USER_ACTION,
-          'value': msg
-        });
+        // browser.runtime.sendMessage({
+        //   'type': USER_ACTION,
+        //   'value': msg
+        // });
       } catch (err) {
-        // console.log(err);
+        console.log(err);
       }
     };
 
@@ -97,16 +100,16 @@
 
         const selectors = finder(e.target, {
           'idName': (value) => {
-            return !filters.idName.some(p => p.test(value))
+            return !filters.idName.some(p => p.test(value));
           },
           'className': (value) => {
-            return !filters.className.some(p => p.test(value))
+            return !filters.className.some(p => p.test(value));
           },
           'tagName': (name) => {
-            return !filters.tagName.some(p => p.test(name))
+            return !filters.tagName.some(p => p.test(name));
           },
           'attr': (name, value) => {
-            return !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name)) && !filters.idName.some(p => p.test(value))
+            return !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name)) && !filters.idName.some(p => p.test(value));
           },
           'seedMinLength': 1, // Min 1
           'optimizedMinLength': 2 // Min 2
@@ -147,6 +150,8 @@
           'href': e.target.href ? e.target.href : null
         };
 
+        getElementWithEventListeners(e.target);
+
         sendMessage(msg);
       } catch (e) {
         // console.log(e.message);
@@ -159,18 +164,40 @@
       window.addEventListener(type, recordEvent, true);
     });
 
-    browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-      if (msg.type === RECORDING && !enabled) {
-        enabled = true;
-        if (msg.options) {
-          updateFilters(msg.options)
-        }
-      } else if (msg.type === RECORDING_STOP) {
-        enabled = false;
-      }
-    });
+    // browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    //   if (msg.type === RECORDING && !enabled) {
+    //     enabled = true;
+    //     if (msg.options) {
+    //       updateFilters(msg.options)
+    //     }
+    //   } else if (msg.type === RECORDING_STOP) {
+    //     enabled = false;
+    //   }
+    // });
 
     window.loadster_event_recorder = true;
+
+    function getElementWithEventListeners(el) {
+      let element = el;
+
+      while (element.parentElement) {
+        if (typeof element.getLoadsterCapturedEventListeners === 'function') {
+          const listeners = element.getLoadsterCapturedEventListeners();
+
+          if (Object.keys(listeners).length) {
+            console.log(listeners, element);
+            break;
+          } else {
+            console.log('listeners not found', window.loadsterPageTarget);
+          }
+
+          element = element.parentElement;
+        } else {
+          console.log('no override');
+          break;
+        }
+      }
+    }
   }
 
   return true;
