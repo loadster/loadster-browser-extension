@@ -1,6 +1,7 @@
-import browser from "webextension-polyfill";
+import { onMessage, sendMessage } from 'webext-bridge/popup';
+import { RECORDING_STATUS } from './constants.js';
 
-function refreshUI (enabled = false) {
+function refreshUI(enabled = false) {
   const containerEl = document.getElementById('status-panel');
 
   if (containerEl) {
@@ -12,14 +13,6 @@ function refreshUI (enabled = false) {
   }
 }
 
-async function refreshState() {
-  const storageKey = 'loadster.recording.enabled';
-  const storage = await browser.storage.local.get([storageKey]);
-  refreshUI(storage[storageKey]);
-}
-
-
-
-document.addEventListener('DOMContentLoaded', refreshState);
-
-
+onMessage(RECORDING_STATUS, (message) => {
+  refreshUI(message.data.enabled);
+});

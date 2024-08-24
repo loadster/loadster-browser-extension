@@ -23,7 +23,6 @@
       "run_at": "document_start"
     }
   ],
-  "web_accessible_resources": ["src/js/event-interceptor.js"],
   "permissions": [
     "storage",
     "webRequest",

@@ -21,15 +21,10 @@
     {
       "matches": ["*://localhost/*", "https://loadster.app/*", "https://speedway.app/*"],
       "js": [
-        "src/content.js"
+        "src/content.js",
+        "src/popup.js"
       ],
       "run_at": "document_start"
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["src/js/event-interceptor.js"],
-      "matches": ["<all_urls>"]
     }
   ],
   "permissions": [

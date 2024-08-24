@@ -1,11 +1,11 @@
-import browser from "webextension-polyfill";
-import { sendMessage, onMessage } from "webext-bridge/content-script";
+import browser from 'webextension-polyfill';
+import { sendMessage, onMessage, allowWindowMessaging } from 'webext-bridge/content-script';
+import { PONG, RECORDER_NAMESPACE, RECORDING_EVENTS, RECORDING_STOP } from './constants.js';
 
+// eslint-disable-next-line no-undef
+console.log('content.js', __BROWSER__);
 
-
-const response = sendMessage("ACTION", {
-  data: { data: 124 }
-}, "background");
+allowWindowMessaging(RECORDER_NAMESPACE);
 
 const bridgeEvents = {
   'CONNECT': 'loadster_connect_extension',
@@ -17,45 +17,35 @@ const bridgeEvents = {
 };
 
 function createMessage(msg) {
-  // Firefox security issue
-  const output = typeof window.cloneInto !== 'undefined' ? window.cloneInto(msg, window, { 'cloneFunctions': true }) : msg;
-
-  return output;
+  // Firefox's security issue
+  return typeof window.cloneInto !== 'undefined' ? window.cloneInto(msg, window, { 'cloneFunctions': true }) : msg;
 }
 
-window.addEventListener(bridgeEvents.CONNECT, (event) => {
-  const portName = event.detail.name;
-  const { version } = browser.runtime.getManifest();
-  const port = browser.runtime.connect({ name: portName }); // see service-worker.js => browser.runtime.onConnect
+function sendMessageToClient(type, data, version, app) {
+  console.log('sendMessageToClient', { type, data });
+  window.dispatchEvent(new CustomEvent(type, {
+    detail: createMessage({ app, version, type, data })
+  }));
+}
 
-  // console.log(bridgeEvents.CONNECTED, port, portName);
+function configurePort(recorderType) {
+  const manifest = browser.runtime.getManifest();
+  const port = browser.runtime.connect({ name: JSON.stringify({ recorderType }) }); // see service-worker.js => browser.runtime.onConnect
 
-  function onPortMessage(msg) {
-    const app = portName;
-    const responseEvent = new CustomEvent(msg.type, {
-      'detail': createMessage({ ...msg, app, version })
-    });
+  // No tabs open
+  onMessage(RECORDING_STOP, message => sendMessageToClient(RECORDING_STOP, message.data, manifest.version, recorderType));
+  onMessage(RECORDING_EVENTS, message => sendMessageToClient(RECORDING_EVENTS, message.data, manifest.version, recorderType));
+  onMessage(PONG, message => sendMessageToClient(PONG, message.data, manifest.version, recorderType));
 
-    window.dispatchEvent(responseEvent);
-  }
-  function onPortDisconnect() {
-    window.dispatchEvent(new CustomEvent(bridgeEvents.DISCONNECTED));
-  }
-
-  port.onMessage.addListener(onPortMessage);
-  port.onDisconnect.addListener(onPortDisconnect);
-
-  function onBridgeStop () {
-    port.disconnect();
-    clearListeners();
-  }
-
+  // From Loadster script to background
   function onBridgeMessage(event) {
-    try {
-      port.postMessage(event.detail);
-    } catch (err) {
-      // console.log(err);
-    }
+    sendMessage(event.detail.type, event.detail, 'background');
+  }
+
+  function onBridgeStop() {
+    sendMessage(RECORDING_STOP, {}, 'background');
+
+    clearListeners();
   }
 
   function clearListeners() {
@@ -66,11 +56,12 @@ window.addEventListener(bridgeEvents.CONNECT, (event) => {
   window.addEventListener(bridgeEvents.STOP, onBridgeStop);
   window.addEventListener(bridgeEvents.SEND, onBridgeMessage);
 
-  window.dispatchEvent(new CustomEvent(bridgeEvents.CONNECTED, { 'detail': createMessage({ version }) }));
-});
+  window.dispatchEvent(new CustomEvent(bridgeEvents.CONNECTED, { 'detail': createMessage({ version: manifest.version }) }));
+
+  port.onDisconnect.addListener(() => window.dispatchEvent(new CustomEvent(bridgeEvents.DISCONNECTED)));
+}
+
+window.addEventListener(bridgeEvents.CONNECT, (event) => configurePort(event.detail.name));
 
 window.dispatchEvent(new CustomEvent(bridgeEvents.READY));
-
-console.log('content script22');
-
 
