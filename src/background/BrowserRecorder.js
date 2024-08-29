@@ -36,15 +36,15 @@ export default class BrowserRecorder extends Recorder {
     console.log('disconnected');
   }
 
-  async injectForegroundScripts(tabId, frameIds) {
+  async injectForegroundScripts(tabId, frameId) {
     try {
       const { manifest_version } = browser.runtime.getManifest();
 
-      console.log('injectForegroundScripts', { tabId, frameIds });
+      console.log('injectForegroundScripts', { tabId, frameId });
 
       if (manifest_version === 3) {
         await browser.scripting.executeScript({
-          target: { tabId, frameIds },
+          target: { tabId, frameIds: [frameId] },
           files: ['src/contentTab.js'],
         });
 
@@ -55,12 +55,19 @@ export default class BrowserRecorder extends Recorder {
           injectImmediately: true,
         });
       } else {
-        // await browser.tabs.executeScript(tabId, { file: 'src/js/blinker.js', frameId, allFrames });
-        // await browser.tabs.executeScript(tabId, { file: 'src/js/finder.js', frameId, allFrames });
-        // await browser.tabs.executeScript(tabId, { file: 'src/js/windowEventRecorder.js', frameId, allFrames });
+        await browser.tabs.executeScript(tabId, {
+          file: 'src/contentTab.js',
+          frameId: frameId,
+          runAt: 'document_start'
+        })
+        await browser.tabs.executeScript(tabId, {
+          file: 'src/content/windowEventRecorder.js',
+          frameId: frameId,
+          runAt: 'document_start'
+        })
       }
     } catch (err) {
-      console.log(err);
+      console.error(err);
     }
   }
 
@@ -82,7 +89,7 @@ export default class BrowserRecorder extends Recorder {
       console.log('navigationCommitted', { frameType, transitionType });
 
       // TODO inject once
-      await this.injectForegroundScripts(tabId, [frameId]);
+      await this.injectForegroundScripts(tabId, frameId);
 
       if (frameType === 'outermost_frame' && transitionType === 'typed') {
         await this.uploadBrowserEvent({ action: 'navigate', data });

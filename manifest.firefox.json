@@ -18,7 +18,8 @@
     {
       "matches": ["*://localhost/*", "https://loadster.app/*", "https://speedway.app/*"],
       "js": [
-        "src/content.js"
+        "src/content.js",
+        "src/popup.js"
       ],
       "run_at": "document_start"
     }

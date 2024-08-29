@@ -28,8 +28,9 @@ export default class HttpRecorder extends Recorder {
       urls: ['*://*/*'],
       types: ['main_frame', 'sub_frame', 'stylesheet', 'script', 'image', 'object', 'xmlhttprequest', 'other']
     };
-    const isFirefox = typeof InstallTrigger !== 'undefined';
-    const reqHeaders = [...(isFirefox ? [] : ['extraHeaders']), 'requestHeaders'];
+    // const isFirefox = typeof InstallTrigger !== 'undefined';
+    // const reqHeaders = [...(isFirefox ? [] : ['extraHeaders']), 'requestHeaders'];
+    const reqHeaders = ['requestHeaders']
 
     browser.webRequest.onBeforeRequest.addListener(this.requestUpdated, filter, ['requestBody']);
     browser.webRequest.onBeforeSendHeaders.addListener(this.requestUpdated, filter, reqHeaders);

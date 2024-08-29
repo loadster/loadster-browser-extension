@@ -32,7 +32,7 @@ browser.runtime.onConnect.addListener(async (port) => {
 browser.runtime.onInstalled.addListener(async () => {
   const manifest = browser.runtime.getManifest();
 
-  console.log('browser.runtime.onInstalled >> inject content scripts');
+  console.log('browser.runtime.onInstalled >> inject content scripts', manifest);
 
   for (const cs of manifest.content_scripts) {
     for (const tab of await browser.tabs.query({ url: cs.matches })) {

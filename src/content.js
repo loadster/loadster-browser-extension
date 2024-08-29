@@ -18,7 +18,11 @@ const bridgeEvents = {
 
 function createMessage(msg) {
   // Firefox's security issue
-  return typeof window.cloneInto !== 'undefined' ? window.cloneInto(msg, window, { 'cloneFunctions': true }) : msg;
+  if (__BROWSER__ === 'firefox' && typeof cloneInto === 'function') {
+    return cloneInto(msg, window, { 'cloneFunctions': true })
+  } else {
+    return msg;
+  }
 }
 
 function sendMessageToClient(type, data, version, app) {

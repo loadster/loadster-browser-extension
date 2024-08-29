@@ -17,13 +17,26 @@ function indicateRecording(count) {
   }
 }
 
-async function blinkTabTitle(tabId, count) {
+async function blinkTabTitle(tabId, count, manifestVersion) {
   try {
-    await browser.scripting.executeScript({
-      target: { tabId },
-      func: indicateRecording,
-      args: [count],
-    });
+    if (manifestVersion === 3) {
+      await browser.scripting.executeScript({
+        target: { tabId },
+        func: indicateRecording,
+        args: [count],
+      });
+    } else {
+      await browser.tabs.executeScript({
+        code: `
+          if (!window.indicateLoadsterRecording) {
+            window.indicateLoadsterRecording = ${indicateRecording}
+          }
+        `,
+      });
+      await browser.tabs.executeScript(tabId, {
+        code: `window.indicateLoadsterRecording && window.indicateLoadsterRecording(${count})`,
+      });
+    }
   } catch (err) {
     console.log(err.message);
   }
@@ -36,6 +49,7 @@ export default class Recorder {
     this.tick = 0;
     this.channel = channel; // content-script@port.sender.tab.id (content.js tab id)
     this.recording = false;
+    this.manifest_version = browser.runtime.getManifest().manifest_version;
 
     onMessage(PING, () => {
       this.blinkTitle();
