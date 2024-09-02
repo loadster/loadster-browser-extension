@@ -8,7 +8,7 @@ export default defineConfig({
   define: {
     __BROWSER__: JSON.stringify(target),
   }, build: {
-    // outDir: `dist-${target}`,
+    outDir: `dist/${target}`,
     emptyOutDir: true,
     sourcemap: true,
   }, plugins: [
