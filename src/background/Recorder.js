@@ -17,31 +17,6 @@ function indicateRecording(count) {
   }
 }
 
-async function blinkTabTitle(tabId, count, manifestVersion) {
-  try {
-    if (manifestVersion === 3) {
-      await browser.scripting.executeScript({
-        target: { tabId },
-        func: indicateRecording,
-        args: [count],
-      });
-    } else {
-      await browser.tabs.executeScript({
-        code: `
-          if (!window.indicateLoadsterRecording) {
-            window.indicateLoadsterRecording = ${indicateRecording}
-          }
-        `,
-      });
-      await browser.tabs.executeScript(tabId, {
-        code: `window.indicateLoadsterRecording && window.indicateLoadsterRecording(${count})`,
-      });
-    }
-  } catch (err) {
-    console.log(err.message);
-  }
-}
-
 export default class Recorder {
   constructor(port, channel) {
     this.port = port;
@@ -115,7 +90,8 @@ export default class Recorder {
     browser.tabs.onRemoved.removeListener(this.onRemovedTab);
   }
 
-  injectForegroundScripts() {}
+  injectForegroundScripts() {
+  }
 
   stopAndCleanup() {
     this.removeTabListeners();
@@ -134,13 +110,38 @@ export default class Recorder {
   }
 
   blinkTitle() {
-    this.tabIds.forEach(tabId => blinkTabTitle(tabId, this.tick));
+    this.tabIds.forEach(tabId => this.blinkTabTitle(tabId, this.tick));
     this.tick++;
   }
 
   stopBlinkingTitle() {
     console.log('stop blinking', this.tabIds);
-    this.tabIds.forEach(tabId => blinkTabTitle(tabId, null));
+    this.tabIds.forEach(tabId => this.blinkTabTitle(tabId, null));
     this.tick = 0;
+  }
+
+  async blinkTabTitle(tabId, count) {
+    try {
+      if (this.manifest_version === 3) {
+        await browser.scripting.executeScript({
+          target: { tabId },
+          func: indicateRecording,
+          args: [count],
+        });
+      } else {
+        await browser.tabs.executeScript(tabId, {
+          code: `
+            if (!window.indicateLoadsterRecording) {
+              window.indicateLoadsterRecording = ${indicateRecording}
+            }
+          `,
+        });
+        await browser.tabs.executeScript(tabId, {
+          code: `window.indicateLoadsterRecording && window.indicateLoadsterRecording(${count})`,
+        });
+      }
+    } catch (err) {
+      console.log(err.message);
+    }
   }
 }

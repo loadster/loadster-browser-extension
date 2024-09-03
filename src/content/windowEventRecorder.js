@@ -2,7 +2,7 @@ import { onMessage, sendMessage, setNamespace } from 'webext-bridge/window';
 import { finder } from '@medv/finder';
 import { RECORDER_NAMESPACE, RECORDING_STATUS, USER_ACTION } from '../constants.js';
 import { overrideEventListeners } from '../utils/windowUtils.js';
-console.log('windowEventRecorder.js');
+console.log('windowEventRecorder.js', { loaded: window.loadsterRecorderScriptsLoaded });
 
 if (!window.loadsterRecorderScriptsLoaded) {
   window.loadsterRecorderScriptsLoaded = true;
@@ -66,41 +66,31 @@ if (!window.loadsterRecorderScriptsLoaded) {
   };
 
   const recordEvent = (e) => {
-    if (!enabled) {
-      return;
-    }
+    if (!enabled) return;
 
     /*
      * We explicitly catch any errors and swallow them, as none node-type events are also ingested.
      * for these events we cannot generate selectors, which is OK
      */
     try {
-      let frameSelector = '';
+      const attrs = {};
 
       if (window.parent !== window) {
-        let frame = window;
-        const frameTag = window.frameElement ? window.frameElement.tagName.toLowerCase() : 'iframe';
-
-        if (frame.name) {
-          attrs.frameName = frame.name;
-
-          frameSelector = `${frameTag}[name="${frame.name}"] ${frameSelector}`;
-        } else {
-          while (frame.parent !== frame) {
-            for (let i = 0; i < frame.parent.frames.length; i++) {
-              if (frame.parent.frames[i] === frame) {
-                attrs.frameIndex = i;
-
-                frameSelector = `${frameTag}[${i}] ${frameSelector}`.trim();
-              }
-            }
-
-            frame = frame.parent;
-          }
-        }
+        addFrameAttributes(attrs)
       }
 
-      const selectors = finder(e.target, {
+      let element = e.target
+
+      const overrideListeners = ['click']
+      if (overrideListeners.includes(e.type)) {
+
+        element = getElementWithEventListeners(e.target, overrideListeners);
+        console.log('found', element.tagName, e.target.tagName, { ancestor: element !== e.target });
+      }
+
+      addTargetAttributes(element, attrs)
+
+      const selector = finder(element, {
         'idName': (value) => {
           return !filters.idName.some(p => p.test(value));
         },
@@ -115,30 +105,18 @@ if (!window.loadsterRecorderScriptsLoaded) {
         },
         'seedMinLength': 1, // Min 1
         'optimizedMinLength': 2 // Min 2
-      }).filter(sel => !!sel).map(sel => `${frameSelector} ${sel}`.trim());
+      })
+      const textSelector = getTextSelector(element, attrs.frameSelector)
 
-      const attrs = {};
+      console.log({ selector, textSelector })
 
-      for (let i = 0, x = e.target.attributes, n = x.length; i < n; i++) {
-        attrs[x[i].name] = x[i].value;
-      }
-
-      const textContent = e.target.textContent.trim();
-      let textSelector = '';
-      if (!e.target.children.length && textContent) {
-        const isUnique = Array.from(document.body.querySelectorAll('*')).filter(el => el.textContent.trim() === textContent).length === 1;
-
-        if (isUnique) {
-          textSelector = `${frameSelector} text=${textContent}`.trim();
-        }
-      }
 
       const msg = {
         'timestamp': Date.now(),
-        selector: selectors[0], // bwd
-        selectors,
-        'value': e.target.value,
-        'tagName': e.target.tagName,
+        selector: selector, // bwd
+        selectors: [selector],
+        'value': element.value,
+        'tagName': element.tagName,
         'action': e.type,
         attrs,
         'keyboard': {
@@ -147,12 +125,10 @@ if (!window.loadsterRecorderScriptsLoaded) {
           'ctrl': e.ctrlKey,
           'meta': e.metaKey
         },
-        'textContent': e.target.textContent,
+        'textContent': element.textContent,
         'textSelector': textSelector,
-        'href': e.target.href ? e.target.href : null
+        'href': element.href ? element.href : null
       };
-
-      getElementWithEventListeners(e.target);
 
       emitMessage(msg);
     } catch (e) {
@@ -160,26 +136,93 @@ if (!window.loadsterRecorderScriptsLoaded) {
     }
   };
 
-  function getElementWithEventListeners(el) {
-    let element = el;
+  function getTextSelector (el, frameSelector) {
+    const textContent = el.textContent.trim();
+    let textSelector = '';
 
-    while (element.parentElement) {
-      if (typeof element.getLoadsterCapturedEventListeners === 'function') {
-        const listeners = element.getLoadsterCapturedEventListeners();
+    if (!el.children.length && textContent) {
+      const isUnique = Array.from(document.body.querySelectorAll('*')).filter(el => el.textContent.trim() === textContent).length === 1;
 
-        if (Object.keys(listeners).length) {
-          console.log(listeners, element);
-          break;
-        } else {
-          console.log('listeners not found');
-        }
-
-        element = element.parentElement;
-      } else {
-        console.log('no override');
-        break;
+      if (isUnique) {
+        textSelector = `${frameSelector} text=${textContent}`.trim();
       }
     }
+
+    return textSelector
+  }
+
+  function addFrameAttributes(attrs) {
+    let frame = window;
+    const frameTag = window.frameElement ? window.frameElement.tagName.toLowerCase() : 'iframe';
+
+    if (frame.name) {
+      attrs.frameName = frame.name;
+
+      attrs.frameSelector = `${frameTag}[name="${frame.name}"] ${attrs.frameSelector}`;
+    } else {
+      while (frame.parent !== frame) {
+        for (let i = 0; i < frame.parent.frames.length; i++) {
+          if (frame.parent.frames[i] === frame) {
+            attrs.frameIndex = i;
+
+            attrs.frameSelector = `${frameTag}[${i}] ${attrs.frameSelector}`.trim();
+          }
+        }
+
+        frame = frame.parent;
+      }
+    }
+  }
+
+  function addTargetAttributes(element, attrs) {
+    for (let i = 0, x = element.attributes, n = x.length; i < n; i++) {
+      attrs[x[i].name] = x[i].value;
+    }
+  }
+
+  function getElementListener(el, listenerType) {
+    if (typeof el.getLoadsterCapturedEventListeners === 'function') {
+      const listeners = el.getLoadsterCapturedEventListeners();
+
+      return listeners[listenerType]
+    }
+  }
+
+  function getElementWithEventListeners(el, listenerTypes) {
+    let currentElement = el;
+
+    if (typeof el.getLoadsterCapturedEventListeners !== 'function') {
+      return el; // no override function
+    }
+
+    while (currentElement) {
+      if (currentElement.tagName === 'HTML') {
+        return el;  // The script reached <html> and found no listeners => return the original element
+      }
+
+      for (let i = 0, l = listenerTypes.length; i < l; ++i) {
+        const listenerType = listenerTypes[i];
+
+        if (listenerType === 'click') {
+          const clickListener = currentElement.onclick || getElementListener(currentElement, 'click')
+
+          if (clickListener) {
+            return currentElement;
+          }
+        } else {
+          const otherListener = getElementListener(currentElement, listenerType)
+
+          if (otherListener) {
+            return currentElement;
+          }
+        }
+      }
+
+      // continue while loop
+      currentElement = currentElement.parentElement;
+    }
+
+    return el;  // nothing found => return original element
   }
 
   events.forEach((type) => {
@@ -187,7 +230,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
   });
 
   onMessage(RECORDING_STATUS, (message) => {
-    console.log('recording event receiver', message.data);
+    console.log('RECORDING_STATUS', message.data);
     enabled = message.data.enabled;
     updateFilters(message.data.options);
   });

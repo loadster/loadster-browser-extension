@@ -18,8 +18,10 @@ const bridgeEvents = {
 
 function createMessage(msg) {
   // Firefox's security issue
+  // eslint-disable-next-line no-undef
   if (__BROWSER__ === 'firefox' && typeof cloneInto === 'function') {
-    return cloneInto(msg, window, { 'cloneFunctions': true })
+    // eslint-disable-next-line no-undef
+    return cloneInto(msg, window, { 'cloneFunctions': true });
   } else {
     return msg;
   }
