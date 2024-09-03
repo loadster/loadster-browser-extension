@@ -1,7 +1,7 @@
 import { onMessage, sendMessage, setNamespace } from 'webext-bridge/window';
+import { finder } from '@medv/finder';
 import { RECORDER_NAMESPACE, RECORDING_STATUS, USER_ACTION } from '../constants.js';
 import { overrideEventListeners } from '../utils/windowUtils.js';
-import { useLoadsterFinder } from '../utils/finder.js';
 console.log('windowEventRecorder.js');
 
 if (!window.loadsterRecorderScriptsLoaded) {
@@ -20,8 +20,6 @@ if (!window.loadsterRecorderScriptsLoaded) {
     attr: [],
   };
   let enabled = true;
-
-  const finder = useLoadsterFinder();
 
   const events = ['click', 'dbclick', 'change', 'select', 'submit'];
 
