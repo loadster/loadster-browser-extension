@@ -1,6 +1,7 @@
 import browser from 'webextension-polyfill';
 import { sendMessage, onMessage, allowWindowMessaging } from 'webext-bridge/content-script';
 import { PONG, RECORDER_NAMESPACE, RECORDING_EVENTS, RECORDING_STOP } from './constants.js';
+import { createMessage } from './utils/windowUtils.js';
 
 // eslint-disable-next-line no-undef
 console.log('content.js', __BROWSER__);
@@ -16,16 +17,6 @@ const bridgeEvents = {
   'READY': 'loadster_recorder_ready'
 };
 
-function createMessage(msg) {
-  // Firefox's security issue
-  // eslint-disable-next-line no-undef
-  if (__BROWSER__ === 'firefox' && typeof cloneInto === 'function') {
-    // eslint-disable-next-line no-undef
-    return cloneInto(msg, window, { 'cloneFunctions': true });
-  } else {
-    return msg;
-  }
-}
 
 function sendMessageToClient(type, data, version, app) {
   console.log('sendMessageToClient', { type, data });

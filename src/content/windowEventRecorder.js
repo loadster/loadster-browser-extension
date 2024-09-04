@@ -1,13 +1,14 @@
 import { onMessage, sendMessage, setNamespace } from 'webext-bridge/window';
 import { finder } from '@medv/finder';
 import { RECORDER_NAMESPACE, RECORDING_STATUS, USER_ACTION } from '../constants.js';
-import { overrideEventListeners } from '../utils/windowUtils.js';
+import { overrideEventListeners, createMessage } from '../utils/windowUtils.js';
+
 console.log('windowEventRecorder.js', { loaded: window.loadsterRecorderScriptsLoaded });
+
+setNamespace(RECORDER_NAMESPACE);
 
 if (!window.loadsterRecorderScriptsLoaded) {
   window.loadsterRecorderScriptsLoaded = true;
-
-  setNamespace(RECORDER_NAMESPACE);
 
   overrideEventListeners();
 
@@ -76,19 +77,19 @@ if (!window.loadsterRecorderScriptsLoaded) {
       const attrs = {};
 
       if (window.parent !== window) {
-        addFrameAttributes(attrs)
+        addFrameAttributes(attrs);
       }
 
-      let element = e.target
+      let element = e.target;
 
-      const overrideListeners = ['click']
+      const overrideListeners = ['click'];
       if (overrideListeners.includes(e.type)) {
 
         element = getElementWithEventListeners(e.target, overrideListeners);
         console.log('found', element.tagName, e.target.tagName, { ancestor: element !== e.target });
       }
 
-      addTargetAttributes(element, attrs)
+      addTargetAttributes(element, attrs);
 
       const selector = finder(element, {
         'idName': (value) => {
@@ -105,10 +106,10 @@ if (!window.loadsterRecorderScriptsLoaded) {
         },
         'seedMinLength': 1, // Min 1
         'optimizedMinLength': 2 // Min 2
-      })
-      const textSelector = getTextSelector(element, attrs.frameSelector)
+      });
+      const textSelector = getTextSelector(element, attrs.frameSelector);
 
-      console.log({ selector, textSelector })
+      console.log({ selector, textSelector });
 
 
       const msg = {
@@ -148,7 +149,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
       }
     }
 
-    return textSelector
+    return textSelector;
   }
 
   function addFrameAttributes(attrs) {
@@ -184,7 +185,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
     if (typeof el.getLoadsterCapturedEventListeners === 'function') {
       const listeners = el.getLoadsterCapturedEventListeners();
 
-      return listeners[listenerType]
+      return listeners[listenerType];
     }
   }
 
@@ -204,13 +205,13 @@ if (!window.loadsterRecorderScriptsLoaded) {
         const listenerType = listenerTypes[i];
 
         if (listenerType === 'click') {
-          const clickListener = currentElement.onclick || getElementListener(currentElement, 'click')
+          const clickListener = currentElement.onclick || getElementListener(currentElement, 'click');
 
           if (clickListener) {
             return currentElement;
           }
         } else {
-          const otherListener = getElementListener(currentElement, listenerType)
+          const otherListener = getElementListener(currentElement, listenerType);
 
           if (otherListener) {
             return currentElement;

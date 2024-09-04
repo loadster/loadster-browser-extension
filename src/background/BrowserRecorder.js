@@ -3,6 +3,10 @@ import { onMessage, sendMessage } from 'webext-bridge/background';
 import Recorder from './Recorder.js';
 import { NAVIGATE_URL, OPTIONS, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION } from '../constants.js';
 import { generateId } from './utils.js';
+import { createMessage } from '../utils/windowUtils.js';
+
+// eslint-disable-next-line no-undef
+const isFirefox = __BROWSER__ === 'firefox';
 
 export default class BrowserRecorder extends Recorder {
   constructor(port, channel) {
@@ -17,8 +21,6 @@ export default class BrowserRecorder extends Recorder {
       const tab = await this.createFirstTab(message.data.value);
 
       this.updateWindowsRecordingStatus(tab.id);
-
-      await this.uploadBrowserEvent({ action: 'navigate', data: { url: message.data.value } });
     });
 
     onMessage(USER_ACTION, msg => this.uploadBrowserEvent(msg.data));
@@ -36,35 +38,35 @@ export default class BrowserRecorder extends Recorder {
     console.log('disconnected');
   }
 
-  async injectForegroundScripts(tabId, frameId) {
+  async injectForegroundScripts(tabId) {
     try {
       const { manifest_version } = browser.runtime.getManifest();
 
-      console.log('injectForegroundScripts', { tabId, frameId });
+      console.log('injectForegroundScripts', { tabId });
 
       if (manifest_version === 3) {
         await browser.scripting.executeScript({
-          target: { tabId, frameIds: [frameId] },
+          target: { tabId, allFrames: true },
           files: ['src/contentTab.js'],
         });
 
         await browser.scripting.executeScript({
-          target: { tabId },
+          target: { tabId, allFrames: true },
           files: ['src/content/windowEventRecorder.js'],
-          world: 'MAIN',
+          world: 'MAIN', // this is necessary for recording event listeners
           injectImmediately: true,
         });
       } else {
         await browser.tabs.executeScript(tabId, {
           file: 'src/contentTab.js',
-          frameId: frameId,
+          allFrames: true,
           runAt: 'document_start'
-        })
+        });
         await browser.tabs.executeScript(tabId, {
           file: 'src/content/windowEventRecorder.js',
-          frameId: frameId,
+          allFrames: true,
           runAt: 'document_start'
-        })
+        });
       }
     } catch (err) {
       console.error(err);
@@ -86,13 +88,28 @@ export default class BrowserRecorder extends Recorder {
     const { tabId, frameId, frameType, transitionType, ...data } = details;
 
     if (this.tabIds.includes(tabId)) {
-      console.log('navigationCommitted', { frameType, transitionType });
+      if (isFirefox) {
+        const outermost = frameId === 0;
+        console.log('navigationCommitted', { transitionType, frameId, outermost });
 
-      // TODO inject once
-      await this.injectForegroundScripts(tabId, frameId);
+        if (outermost) {
+          // inject content scripts to all frames
+          await this.injectForegroundScripts(tabId);
+        }
 
-      if (frameType === 'outermost_frame' && transitionType === 'typed') {
-        await this.uploadBrowserEvent({ action: 'navigate', data });
+        if (['link', 'typed', 'form_submit'].includes(transitionType)) {
+          await this.uploadBrowserEvent({ action: 'navigate', data });
+        }
+
+      } else {
+        console.log('navigationCommitted', { frameType, transitionType });
+        if (frameType === 'outermost_frame') {
+          // inject content scripts to all frames
+          await this.injectForegroundScripts(tabId);
+        }
+        if (['link', 'typed'].includes(transitionType)) {
+          await this.uploadBrowserEvent({ action: 'navigate', data });
+        }
       }
     }
   }

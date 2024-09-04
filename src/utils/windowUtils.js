@@ -3,6 +3,8 @@ export function overrideEventListeners() {
   const originalAddEventListener = Element.prototype.addEventListener;
   const originalRemoveEventListener = Element.prototype.removeEventListener;
 
+  console.log('event listeners override');
+
   // Override addEventListener
   Element.prototype.addEventListener = function (type, listener, options) {
     // Log or process the event listener being added
@@ -48,4 +50,16 @@ export function overrideEventListeners() {
       return this._loadsterCapturedEventListeners[type];
     }
   };
+}
+
+export function createMessage(msg) {
+  // Firefox's security issue
+  // eslint-disable-next-line no-undef
+  if (__BROWSER__ === 'firefox' && typeof cloneInto === 'function') {
+    console.log('cloning into');
+    // eslint-disable-next-line no-undef
+    return cloneInto(msg, window, { 'cloneFunctions': true });
+  } else {
+    return msg;
+  }
 }

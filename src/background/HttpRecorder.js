@@ -5,7 +5,7 @@ import { NAVIGATE_URL, RECORDING_EVENTS } from '../constants.js';
 import { toBase64 } from './utils.js';
 
 // eslint-disable-next-line no-undef
-console.log('content.js', __BROWSER__);
+const isFirefox = __BROWSER__ === 'firefox';
 
 export default class HttpRecorder extends Recorder {
   constructor(port, channel) {
@@ -16,8 +16,7 @@ export default class HttpRecorder extends Recorder {
     onMessage(NAVIGATE_URL, async message => {
       this.recording = true;
 
-      const tab = await this.createFirstTab(message.data.value);
-      console.log('first tab', tab);
+      await this.createFirstTab(message.data.value);
     });
 
     this.addWebRequestListeners();
@@ -28,9 +27,7 @@ export default class HttpRecorder extends Recorder {
       urls: ['*://*/*'],
       types: ['main_frame', 'sub_frame', 'stylesheet', 'script', 'image', 'object', 'xmlhttprequest', 'other']
     };
-    // const isFirefox = typeof InstallTrigger !== 'undefined';
-    // const reqHeaders = [...(isFirefox ? [] : ['extraHeaders']), 'requestHeaders'];
-    const reqHeaders = ['requestHeaders']
+    const reqHeaders = [...(isFirefox ? [] : ['extraHeaders']), 'requestHeaders'];
 
     browser.webRequest.onBeforeRequest.addListener(this.requestUpdated, filter, ['requestBody']);
     browser.webRequest.onBeforeSendHeaders.addListener(this.requestUpdated, filter, reqHeaders);
@@ -53,7 +50,6 @@ export default class HttpRecorder extends Recorder {
     super.stopAndCleanup();
 
     this.removeWebRequestListeners();
-    console.log('disconnected');
   }
 
   /**
@@ -163,7 +159,6 @@ export default class HttpRecorder extends Recorder {
 
   async uploadRequest(request, id) {
     if (this.tabIds.includes(request.tabId)) {
-      console.log(`uploadRequest`, request);
       sendMessage(RECORDING_EVENTS, {
         http: { [id]: request },
         browser: {}
