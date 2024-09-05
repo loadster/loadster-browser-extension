@@ -73,7 +73,7 @@ export default class Recorder {
     const fromPort = this.tabIds.includes(tabId);
 
     if (completed && hasURL && fromPort) {
-      // console.log('onUpdatedTab >> inject foreground scripts');
+      console.log('onUpdatedTab >> inject foreground scripts?');
       // this.injectForegroundScripts(tabId);
     }
   }
@@ -100,13 +100,9 @@ export default class Recorder {
   }
 
   async createFirstTab(url) {
-    console.log('createFirstTab', url);
-
     const tab = await browser.tabs.create({ url, active: true });
 
     this.tabIds.push(tab.id);
-
-    return tab;
   }
 
   blinkTitle() {
@@ -132,12 +128,12 @@ export default class Recorder {
         await browser.tabs.executeScript(tabId, {
           code: `
             if (!window.indicateLoadsterRecording) {
-              window.indicateLoadsterRecording = ${indicateRecording}
+              window.indicateLoadsterRecording = ${indicateRecording};
             }
           `,
         });
         await browser.tabs.executeScript(tabId, {
-          code: `window.indicateLoadsterRecording && window.indicateLoadsterRecording(${count})`,
+          code: `if (window.indicateLoadsterRecording) { window.indicateLoadsterRecording(${count}); }`,
         });
       }
     } catch (err) {

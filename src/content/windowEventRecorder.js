@@ -1,14 +1,17 @@
-import { onMessage, sendMessage, setNamespace } from 'webext-bridge/window';
 import { finder } from '@medv/finder';
-import { RECORDER_NAMESPACE, RECORDING_STATUS, USER_ACTION } from '../constants.js';
+import { RECORDING_STATUS, USER_ACTION } from '../constants.js';
 import { overrideEventListeners, createMessage } from '../utils/windowUtils.js';
-
-console.log('windowEventRecorder.js', { loaded: window.loadsterRecorderScriptsLoaded });
-
-setNamespace(RECORDER_NAMESPACE);
 
 if (!window.loadsterRecorderScriptsLoaded) {
   window.loadsterRecorderScriptsLoaded = true;
+
+  let enabled = true;
+
+  window.addEventListener(RECORDING_STATUS, (event) => {
+    console.log('window RECORDING_STATUS', event.detail);
+    enabled = event.detail.enabled;
+    updateFilters(event.detail.options);
+  });
 
   overrideEventListeners();
 
@@ -20,7 +23,6 @@ if (!window.loadsterRecorderScriptsLoaded) {
     tagName: [],
     attr: [],
   };
-  let enabled = true;
 
   const events = ['click', 'dbclick', 'change', 'select', 'submit'];
 
@@ -55,15 +57,14 @@ if (!window.loadsterRecorderScriptsLoaded) {
   }
 
   const emitMessage = (msg) => {
-    try {
-      console.log('try send message ', msg);
-      sendMessage(USER_ACTION, {
-        action: msg.action,
-        data: msg
-      }, 'background');
-    } catch (err) {
-      console.log(err);
-    }
+    window.top.dispatchEvent(
+      new CustomEvent(USER_ACTION, {
+        'detail': createMessage({
+          action: msg.action,
+          data: msg
+        })
+      }, { bubbles: true })
+    );
   };
 
   const recordEvent = (e) => {
@@ -137,7 +138,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
     }
   };
 
-  function getTextSelector (el, frameSelector) {
+  function getTextSelector(el, frameSelector) {
     const textContent = el.textContent.trim();
     let textSelector = '';
 
@@ -156,9 +157,10 @@ if (!window.loadsterRecorderScriptsLoaded) {
     let frame = window;
     const frameTag = window.frameElement ? window.frameElement.tagName.toLowerCase() : 'iframe';
 
+    attrs.frameSelector = '';
+
     if (frame.name) {
       attrs.frameName = frame.name;
-
       attrs.frameSelector = `${frameTag}[name="${frame.name}"] ${attrs.frameSelector}`;
     } else {
       while (frame.parent !== frame) {
@@ -193,11 +195,12 @@ if (!window.loadsterRecorderScriptsLoaded) {
     let currentElement = el;
 
     if (typeof el.getLoadsterCapturedEventListeners !== 'function') {
+      console.log('no override');
       return el; // no override function
     }
 
     while (currentElement) {
-      if (currentElement.tagName === 'HTML') {
+      if (el !== currentElement && currentElement.tagName === 'HTML') {
         return el;  // The script reached <html> and found no listeners => return the original element
       }
 
@@ -229,13 +232,5 @@ if (!window.loadsterRecorderScriptsLoaded) {
   events.forEach((type) => {
     window.addEventListener(type, recordEvent, true);
   });
-
-  onMessage(RECORDING_STATUS, (message) => {
-    console.log('RECORDING_STATUS', message.data);
-    enabled = message.data.enabled;
-    updateFilters(message.data.options);
-  });
-} else {
-  console.log('already loaded');
 }
 

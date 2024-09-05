@@ -3,7 +3,6 @@ import { onMessage, sendMessage } from 'webext-bridge/background';
 import Recorder from './Recorder.js';
 import { NAVIGATE_URL, OPTIONS, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION } from '../constants.js';
 import { generateId } from './utils.js';
-import { createMessage } from '../utils/windowUtils.js';
 
 // eslint-disable-next-line no-undef
 const isFirefox = __BROWSER__ === 'firefox';
@@ -18,9 +17,7 @@ export default class BrowserRecorder extends Recorder {
     onMessage(NAVIGATE_URL, async message => {
       this.recording = true;
 
-      const tab = await this.createFirstTab(message.data.value);
-
-      this.updateWindowsRecordingStatus(tab.id);
+      await this.createFirstTab(message.data.value);
     });
 
     onMessage(USER_ACTION, msg => this.uploadBrowserEvent(msg.data));
@@ -34,7 +31,7 @@ export default class BrowserRecorder extends Recorder {
 
     browser.webNavigation.onCommitted.removeListener(this.navigationCommitted);
 
-    this.updateWindowsRecordingStatus(this.port.sender.tab.id);
+    this.tabIds.forEach(tabId => this.updateWindowsRecordingStatus(tabId));
     console.log('disconnected');
   }
 
@@ -68,6 +65,9 @@ export default class BrowserRecorder extends Recorder {
           runAt: 'document_start'
         });
       }
+
+      this.recording = true;
+      this.updateWindowsRecordingStatus(tabId);
     } catch (err) {
       console.error(err);
     }
@@ -89,13 +89,9 @@ export default class BrowserRecorder extends Recorder {
 
     if (this.tabIds.includes(tabId)) {
       if (isFirefox) {
-        const outermost = frameId === 0;
-        console.log('navigationCommitted', { transitionType, frameId, outermost });
+        console.log('navigationCommitted', { transitionType, frameId });
 
-        if (outermost) {
-          // inject content scripts to all frames
-          await this.injectForegroundScripts(tabId);
-        }
+        await this.injectForegroundScripts(tabId);
 
         if (['link', 'typed', 'form_submit'].includes(transitionType)) {
           await this.uploadBrowserEvent({ action: 'navigate', data });
@@ -107,6 +103,7 @@ export default class BrowserRecorder extends Recorder {
           // inject content scripts to all frames
           await this.injectForegroundScripts(tabId);
         }
+
         if (['link', 'typed'].includes(transitionType)) {
           await this.uploadBrowserEvent({ action: 'navigate', data });
         }
@@ -115,9 +112,10 @@ export default class BrowserRecorder extends Recorder {
   }
 
   updateWindowsRecordingStatus(tabId) {
+    console.log('RECORDING_STATUS to', tabId);
     sendMessage(RECORDING_STATUS, {
       enabled: this.recording,
       options: this.recordingOptions
-    }, `window@${tabId}`);
+    }, `content-script@${tabId}`);
   }
 }

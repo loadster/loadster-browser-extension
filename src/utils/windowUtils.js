@@ -56,7 +56,6 @@ export function createMessage(msg) {
   // Firefox's security issue
   // eslint-disable-next-line no-undef
   if (__BROWSER__ === 'firefox' && typeof cloneInto === 'function') {
-    console.log('cloning into');
     // eslint-disable-next-line no-undef
     return cloneInto(msg, window, { 'cloneFunctions': true });
   } else {

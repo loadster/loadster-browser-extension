@@ -17,7 +17,6 @@ const bridgeEvents = {
   'READY': 'loadster_recorder_ready'
 };
 
-
 function sendMessageToClient(type, data, version, app) {
   console.log('sendMessageToClient', { type, data });
   window.dispatchEvent(new CustomEvent(type, {
