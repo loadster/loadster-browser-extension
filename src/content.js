@@ -3,9 +3,6 @@ import { sendMessage, onMessage, allowWindowMessaging } from 'webext-bridge/cont
 import { PONG, RECORDER_NAMESPACE, RECORDING_EVENTS, RECORDING_STOP } from './constants.js';
 import { createMessage } from './utils/windowUtils.js';
 
-// eslint-disable-next-line no-undef
-console.log('content.js', __BROWSER__);
-
 allowWindowMessaging(RECORDER_NAMESPACE);
 
 const bridgeEvents = {
@@ -18,7 +15,6 @@ const bridgeEvents = {
 };
 
 function sendMessageToClient(type, data, version, app) {
-  console.log('sendMessageToClient', { type, data });
   window.dispatchEvent(new CustomEvent(type, {
     detail: createMessage({ app, version, type, data })
   }));

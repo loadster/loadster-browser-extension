@@ -3,12 +3,8 @@ export function overrideEventListeners() {
   const originalAddEventListener = Element.prototype.addEventListener;
   const originalRemoveEventListener = Element.prototype.removeEventListener;
 
-  console.log('event listeners override');
-
   // Override addEventListener
   Element.prototype.addEventListener = function (type, listener, options) {
-    // Log or process the event listener being added
-    // console.log('capturing events');
     // console.log('Event listener added:', {
     //   element: this,
     //   type: type,

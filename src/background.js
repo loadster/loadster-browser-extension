@@ -9,10 +9,10 @@ let activeRecorder = null;
 browser.runtime.onConnect.addListener(async (port) => {
   const config = parseConfig(port.name);
 
-  console.log('browser.runtime.onConnect', config, activeRecorder, port);
-
   if ([RECORDER_TYPE.HTTP, RECORDER_TYPE.BROWSER].includes(config.recorderType)) {
     const channel = `content-script@${port.sender.tab.id}`;
+
+    console.log('browser.runtime.onConnect', config);
 
     if (RECORDER_TYPE.BROWSER === config.recorderType) {
       activeRecorder = new BrowserRecorder(port, channel);

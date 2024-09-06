@@ -27,12 +27,10 @@ export default class BrowserRecorder extends Recorder {
 
   stopAndCleanup() {
     super.stopAndCleanup();
-    console.log('stopAndCleanup B');
 
     browser.webNavigation.onCommitted.removeListener(this.navigationCommitted);
 
     this.tabIds.forEach(tabId => this.updateWindowsRecordingStatus(tabId));
-    console.log('disconnected');
   }
 
   async injectForegroundScripts(tabId) {
@@ -74,8 +72,6 @@ export default class BrowserRecorder extends Recorder {
   }
 
   async uploadBrowserEvent(event) {
-    console.log('uploadBrowserEvent', event, this.channel);
-
     await sendMessage(RECORDING_EVENTS, {
       http: {},
       browser: {
@@ -89,8 +85,6 @@ export default class BrowserRecorder extends Recorder {
 
     if (this.tabIds.includes(tabId)) {
       if (isFirefox) {
-        console.log('navigationCommitted', { transitionType, frameId });
-
         await this.injectForegroundScripts(tabId);
 
         if (['link', 'typed', 'form_submit'].includes(transitionType)) {
@@ -98,10 +92,8 @@ export default class BrowserRecorder extends Recorder {
         }
 
       } else {
-        console.log('navigationCommitted', { frameType, transitionType });
         if (frameType === 'outermost_frame') {
-          // inject content scripts to all frames
-          await this.injectForegroundScripts(tabId);
+          await this.injectForegroundScripts(tabId); // inject content scripts to all frames
         }
 
         if (['link', 'typed'].includes(transitionType)) {
@@ -112,7 +104,6 @@ export default class BrowserRecorder extends Recorder {
   }
 
   updateWindowsRecordingStatus(tabId) {
-    console.log('RECORDING_STATUS to', tabId);
     sendMessage(RECORDING_STATUS, {
       enabled: this.recording,
       options: this.recordingOptions

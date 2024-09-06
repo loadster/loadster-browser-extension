@@ -33,7 +33,6 @@ export default class Recorder {
     });
 
     onMessage(RECORDING_STOP, () => {
-      console.log('disconnect');
       this.stopAndCleanup();
       this.port.disconnect();
     });
@@ -44,13 +43,8 @@ export default class Recorder {
   }
 
   onCreatedTab(tab) {
-    console.log('onCreatedTab', { tabId: tab.id, openerTabId: tab.openerTabId });
-
     if (this.tabIds.some(id => (id === tab.openerTabId && id !== tab.id))) {
-      console.log('onCreatedTab >> push tab');
       this.tabIds.push(tab.id);
-    } else {
-      console.log('onCreatedTab >> not pushing tab');
     }
   }
 
@@ -62,31 +56,18 @@ export default class Recorder {
     }
 
     if (this.tabIds.length === 0) {
-      console.log('onRemovedTab >> emit RECORDING_STOP from background, because there are no open tabs', this.channel);
+      console.log('Stop recording from the background', this.channel);
       sendMessage(RECORDING_STOP, {}, this.channel);
-    }
-  }
-
-  onUpdatedTab(tabId, changeInfo, tab) {
-    const completed = changeInfo.status === 'complete';
-    const hasURL = /(http(s?)):\/\//i.test(tab.url);
-    const fromPort = this.tabIds.includes(tabId);
-
-    if (completed && hasURL && fromPort) {
-      console.log('onUpdatedTab >> inject foreground scripts?');
-      // this.injectForegroundScripts(tabId);
     }
   }
 
   addTabListeners() {
     browser.tabs.onCreated.addListener(this.onCreatedTab.bind(this));
-    browser.tabs.onUpdated.addListener(this.onUpdatedTab.bind(this));
     browser.tabs.onRemoved.addListener(this.onRemovedTab.bind(this));
   }
 
   removeTabListeners() {
     browser.tabs.onCreated.removeListener(this.onCreatedTab);
-    browser.tabs.onUpdated.removeListener(this.onUpdatedTab);
     browser.tabs.onRemoved.removeListener(this.onRemovedTab);
   }
 
@@ -111,7 +92,6 @@ export default class Recorder {
   }
 
   stopBlinkingTitle() {
-    console.log('stop blinking', this.tabIds);
     this.tabIds.forEach(tabId => this.blinkTabTitle(tabId, null));
     this.tick = 0;
   }

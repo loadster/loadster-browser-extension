@@ -8,20 +8,14 @@ if (!window.loadsterRecorderScriptsLoaded) {
   let enabled = true;
 
   window.addEventListener(RECORDING_STATUS, (event) => {
-    console.log('window RECORDING_STATUS', event.detail);
     enabled = event.detail.enabled;
     updateFilters(event.detail.options);
   });
 
   overrideEventListeners();
 
-  console.log('initialize window event recorder');
-
   const filters = {
-    idName: [],
-    className: [],
-    tagName: [],
-    attr: [],
+    idName: [], className: [], tagName: [], attr: [],
   };
 
   const events = ['click', 'dbclick', 'change', 'select', 'submit'];
@@ -57,14 +51,11 @@ if (!window.loadsterRecorderScriptsLoaded) {
   }
 
   const emitMessage = (msg) => {
-    window.top.dispatchEvent(
-      new CustomEvent(USER_ACTION, {
-        'detail': createMessage({
-          action: msg.action,
-          data: msg
-        })
-      }, { bubbles: true })
-    );
+    window.top.dispatchEvent(new CustomEvent(USER_ACTION, {
+      'detail': createMessage({
+        action: msg.action, data: msg
+      })
+    }, { bubbles: true }));
   };
 
   const recordEvent = (e) => {
@@ -75,7 +66,9 @@ if (!window.loadsterRecorderScriptsLoaded) {
      * for these events we cannot generate selectors, which is OK
      */
     try {
-      const attrs = {};
+      const attrs = {
+        frameSelector: ''
+      };
 
       if (window.parent !== window) {
         addFrameAttributes(attrs);
@@ -84,48 +77,26 @@ if (!window.loadsterRecorderScriptsLoaded) {
       let element = e.target;
 
       const overrideListeners = ['click'];
-      if (overrideListeners.includes(e.type)) {
 
+      if (overrideListeners.includes(e.type)) {
         element = getElementWithEventListeners(e.target, overrideListeners);
-        console.log('found', element.tagName, e.target.tagName, { ancestor: element !== e.target });
       }
 
       addTargetAttributes(element, attrs);
 
-      const selector = finder(element, {
-        'idName': (value) => {
-          return !filters.idName.some(p => p.test(value));
-        },
-        'className': (value) => {
-          return !filters.className.some(p => p.test(value));
-        },
-        'tagName': (name) => {
-          return !filters.tagName.some(p => p.test(name));
-        },
-        'attr': (name, value) => {
-          return !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name)) && !filters.idName.some(p => p.test(value));
-        },
-        'seedMinLength': 1, // Min 1
-        'optimizedMinLength': 2 // Min 2
-      });
+      const selectors = getCssSelectors(element, attrs.frameSelector);
       const textSelector = getTextSelector(element, attrs.frameSelector);
-
-      console.log({ selector, textSelector });
-
 
       const msg = {
         'timestamp': Date.now(),
-        selector: selector, // bwd
-        selectors: [selector],
-        'value': element.value,
+        selector: selectors[0], // bwd
+        selectors: selectors, 'value':
+        element.value,
         'tagName': element.tagName,
         'action': e.type,
         attrs,
         'keyboard': {
-          'alt': e.altKey,
-          'shift': e.shiftKey,
-          'ctrl': e.ctrlKey,
-          'meta': e.metaKey
+          'alt': e.altKey, 'shift': e.shiftKey, 'ctrl': e.ctrlKey, 'meta': e.metaKey
         },
         'textContent': element.textContent,
         'textSelector': textSelector,
@@ -137,6 +108,52 @@ if (!window.loadsterRecorderScriptsLoaded) {
       // console.log(e.message);
     }
   };
+
+  function getCssSelectors (element, frameSelector) {
+    const idFilter = (value) => !filters.idName.some(p => p.test(value));
+    const classFilter = (value) => !filters.idName.some(p => p.test(value));
+    const tagFilter = (name) => !filters.tagName.some(p => p.test(name));
+    const attrFilter = (name, value) => !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name)) && !filters.idName.some(p => p.test(value));
+
+    // https://github.com/antonmedv/finder?tab=readme-ov-file#configuration
+    return [
+      tryFindSelector(element,{
+        'idName': idFilter,
+        'className': classFilter,
+        'tagName': tagFilter,
+        'attr': attrFilter,
+      }),
+      tryFindSelector(element, {
+        'idName':() => false,
+        'className': classFilter,
+        'tagName': () => false,
+        'attr': () => false,
+      }),
+      tryFindSelector(element, {
+        'idName':() => false,
+        'className': () => false,
+        'tagName': tagFilter,
+        'attr': () => false,
+      }),
+      tryFindSelector(element, {
+        'idName':() => false,
+        'className': () => false,
+        'tagName': () => false,
+        'attr': attrFilter,
+      })
+    ]
+      .filter((sel, index, arr) => !!sel && arr.indexOf(sel) === index)
+      .map(sel => `${frameSelector} ${sel}`.trim());
+  }
+
+  function tryFindSelector(element, options) {
+    try {
+      return finder(element, options);
+    } catch (e) {
+      // Mute Error: Selector was not found.
+      // console.log(e);
+    }
+  }
 
   function getTextSelector(el, frameSelector) {
     const textContent = el.textContent.trim();
@@ -195,7 +212,6 @@ if (!window.loadsterRecorderScriptsLoaded) {
     let currentElement = el;
 
     if (typeof el.getLoadsterCapturedEventListeners !== 'function') {
-      console.log('no override');
       return el; // no override function
     }
 
