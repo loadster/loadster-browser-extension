@@ -6,7 +6,7 @@ function indicateRecording(count) {
   const iconA = String.fromCodePoint(0x25CF);
   const iconB = String.fromCodePoint(0x25CB);
 
-  if (!window.loadsterOriginalTitle) {
+  if (window.loadsterOriginalTitle === undefined) {
     window.loadsterOriginalTitle = window.document.title;
   }
 

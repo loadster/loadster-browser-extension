@@ -55,7 +55,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
       'detail': createMessage({
         action: msg.action, data: msg
       })
-    }, { bubbles: true }));
+    }));
   };
 
   const recordEvent = (e) => {
@@ -90,8 +90,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
       const msg = {
         'timestamp': Date.now(),
         selector: selectors[0], // bwd
-        selectors: selectors, 'value':
-        element.value,
+        selectors: selectors,
+        'value': element.value,
         'tagName': element.tagName,
         'action': e.type,
         attrs,
@@ -249,4 +249,3 @@ if (!window.loadsterRecorderScriptsLoaded) {
     window.addEventListener(type, recordEvent, true);
   });
 }
-

@@ -12,17 +12,49 @@ export default class BrowserRecorder extends Recorder {
     super(port, channel);
 
     this.recordingOptions = {};
+    this.registeredScripts = [];
 
-    onMessage(OPTIONS, msg => Object.assign(this.recordingOptions, msg.data));
-    onMessage(NAVIGATE_URL, async message => {
-      this.recording = true;
+    this.registerPageContentScripts().then(() => {
+      onMessage(OPTIONS, msg => Object.assign(this.recordingOptions, msg.data));
+      onMessage(NAVIGATE_URL, async message => {
+        this.recording = true;
 
-      await this.createFirstTab(message.data.value);
+        await this.createFirstTab(message.data.value);
+      });
+
+      onMessage(USER_ACTION, msg => this.uploadBrowserEvent(msg.data));
+
+      browser.webNavigation.onCommitted.addListener(this.navigationCommitted.bind(this));
     });
+  }
 
-    onMessage(USER_ACTION, msg => this.uploadBrowserEvent(msg.data));
+  async registerPageContentScripts () {
+    const { manifest_version } = browser.runtime.getManifest();
 
-    browser.webNavigation.onCommitted.addListener(this.navigationCommitted.bind(this));
+    if (manifest_version === 3) {
+       await browser.scripting.registerContentScripts([{
+          matches: ['*://*/*'],
+          excludeMatches: ['*://localhost/*', 'https://loadster.app/*', 'https://speedway.app/*'],
+          js: ['src/content/windowEventRecorder.js'],
+          id: 'loadster-page-content-scripts',
+          allFrames: true,
+          runAt: 'document_start',
+          world: 'MAIN',
+        }]);
+    } else {
+      const script = await browser.contentScripts.register({
+        matches: ['*://*/*'],
+        excludeMatches: ['*://localhost/*', 'https://loadster.app/*', 'https://speedway.app/*'],
+        js: [{
+          file: 'src/content/windowEventRecorder.js'
+        }],
+        allFrames: true,
+        runAt: 'document_start',
+        world: 'MAIN',
+      });
+
+      this.registeredScripts.push(script);
+    }
   }
 
   stopAndCleanup() {
@@ -31,6 +63,20 @@ export default class BrowserRecorder extends Recorder {
     browser.webNavigation.onCommitted.removeListener(this.navigationCommitted);
 
     this.tabIds.forEach(tabId => this.updateWindowsRecordingStatus(tabId));
+
+    this.unregisterAllDynamicContentScripts().then();
+  }
+
+  async unregisterAllDynamicContentScripts() {
+    const { manifest_version } = browser.runtime.getManifest();
+
+    console.log('unregisterAllDynamicContentScripts', this.registeredScripts);
+
+    if (manifest_version === 3) {
+      await browser.scripting.unregisterContentScripts({ ids: ['loadster-page-content-scripts'] });
+    } else {
+      this.registeredScripts.forEach(script => script.unregister());
+    }
   }
 
   async injectForegroundScripts(tabId) {
@@ -44,21 +90,9 @@ export default class BrowserRecorder extends Recorder {
           target: { tabId, allFrames: true },
           files: ['src/contentTab.js'],
         });
-
-        await browser.scripting.executeScript({
-          target: { tabId, allFrames: true },
-          files: ['src/content/windowEventRecorder.js'],
-          world: 'MAIN', // this is necessary for recording event listeners
-          injectImmediately: true,
-        });
       } else {
         await browser.tabs.executeScript(tabId, {
           file: 'src/contentTab.js',
-          allFrames: true,
-          runAt: 'document_start'
-        });
-        await browser.tabs.executeScript(tabId, {
-          file: 'src/content/windowEventRecorder.js',
           allFrames: true,
           runAt: 'document_start'
         });
