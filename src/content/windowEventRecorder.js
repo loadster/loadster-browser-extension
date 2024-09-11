@@ -18,7 +18,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
     idName: [], className: [], tagName: [], attr: [],
   };
 
-  const events = ['click', 'dbclick', 'change', 'select', 'submit'];
+  const events = ['click', 'dbclick', 'change', 'select', 'submit', 'mouseenter', 'mouseover'];
+  const overrideListeners = ['click', 'mouseenter', 'mouseover'];
 
   function isValidRegex(str) {
     let isValid = true;
@@ -75,11 +76,21 @@ if (!window.loadsterRecorderScriptsLoaded) {
       }
 
       let element = e.target;
+      let action = e.type;
 
-      const overrideListeners = ['click'];
+      if (overrideListeners.includes(action)) {
+        const elementWithListener = getElementWithEventListeners(e.target, action);
 
-      if (overrideListeners.includes(e.type)) {
-        element = getElementWithEventListeners(e.target, overrideListeners);
+        if (['click'].includes(action)) {
+          element = elementWithListener || e.target;
+        } else if (['mouseenter', 'mouseover'].includes(action)) {
+          element = elementWithListener;
+          action = 'hover';
+        }
+      }
+
+      if (!element) {
+        return;
       }
 
       addTargetAttributes(element, attrs);
@@ -93,7 +104,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
         selectors: selectors,
         'value': element.value,
         'tagName': element.tagName,
-        'action': e.type,
+        'action': action,
         attrs,
         'keyboard': {
           'alt': e.altKey, 'shift': e.shiftKey, 'ctrl': e.ctrlKey, 'meta': e.metaKey
@@ -208,41 +219,35 @@ if (!window.loadsterRecorderScriptsLoaded) {
     }
   }
 
-  function getElementWithEventListeners(el, listenerTypes) {
+  function getElementWithEventListeners(el, listenerType) {
     let currentElement = el;
+    let level = 0;
+    const maxLevel = 10;
 
     if (typeof el.getLoadsterCapturedEventListeners !== 'function') {
-      return el; // no override function
+      return; // no override function
     }
 
-    while (currentElement) {
+    while (currentElement || level <= maxLevel) {
       if (el !== currentElement && currentElement.tagName === 'HTML') {
-        return el;  // The script reached <html> and found no listeners => return the original element
+        return;  // The script reached <html> and found no listeners => return the original element
       }
 
-      for (let i = 0, l = listenerTypes.length; i < l; ++i) {
-        const listenerType = listenerTypes[i];
+      let listener = null;
 
-        if (listenerType === 'click') {
-          const clickListener = currentElement.onclick || getElementListener(currentElement, 'click');
-
-          if (clickListener) {
-            return currentElement;
-          }
-        } else {
-          const otherListener = getElementListener(currentElement, listenerType);
-
-          if (otherListener) {
-            return currentElement;
-          }
-        }
+      if (listenerType === 'click') {
+        listener = currentElement.onclick || getElementListener(currentElement, listenerType);
+      } else {
+        listener = getElementListener(currentElement, listenerType);
       }
 
-      // continue while loop
+      if (listener) {
+        return currentElement; // Found element with matching listener
+      }
+
       currentElement = currentElement.parentElement;
+      level++;
     }
-
-    return el;  // nothing found => return original element
   }
 
   events.forEach((type) => {

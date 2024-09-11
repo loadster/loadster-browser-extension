@@ -14,18 +14,17 @@ export default class BrowserRecorder extends Recorder {
     this.recordingOptions = {};
     this.registeredScripts = [];
 
-    this.registerPageContentScripts().then(() => {
-      onMessage(OPTIONS, msg => Object.assign(this.recordingOptions, msg.data));
-      onMessage(NAVIGATE_URL, async message => {
-        this.recording = true;
+    onMessage(OPTIONS, msg => Object.assign(this.recordingOptions, msg.data));
+    onMessage(NAVIGATE_URL, async message => {
+      this.recording = true;
 
-        await this.createFirstTab(message.data.value);
-      });
-
-      onMessage(USER_ACTION, msg => this.uploadBrowserEvent(msg.data));
-
-      browser.webNavigation.onCommitted.addListener(this.navigationCommitted.bind(this));
+      await this.createFirstTab(message.data.value);
     });
+
+    onMessage(USER_ACTION, msg => this.uploadBrowserEvent(msg.data));
+
+    browser.webNavigation.onCommitted.addListener(this.navigationCommitted.bind(this));
+    this.registerPageContentScripts().then(() => {});
   }
 
   async registerPageContentScripts () {
