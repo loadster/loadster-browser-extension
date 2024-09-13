@@ -228,7 +228,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
       return; // no override function
     }
 
-    while (currentElement || level <= maxLevel) {
+    while (currentElement && level <= maxLevel) {
       if (el !== currentElement && currentElement.tagName === 'HTML') {
         return;  // The script reached <html> and found no listeners => return the original element
       }
@@ -237,6 +237,13 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
       if (listenerType === 'click') {
         listener = currentElement.onclick || getElementListener(currentElement, listenerType);
+      } else if (['mouseover', 'mouseenter'].includes(listenerType)) {
+        listener = getElementListener(currentElement, listenerType);
+
+        // For the hovers only, return the original element
+        if (listener) {
+          return el;
+        }
       } else {
         listener = getElementListener(currentElement, listenerType);
       }
