@@ -14,7 +14,7 @@ export default class BrowserRecorder extends Recorder {
     this.recordingOptions = {};
     this.registeredScripts = [];
 
-    onMessage(OPTIONS, msg => Object.assign(this.recordingOptions, msg.data));
+    onMessage(OPTIONS, msg => Object.assign(this.recordingOptions, msg.data.value));
     onMessage(NAVIGATE_URL, async message => {
       this.recording = true;
 

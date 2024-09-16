@@ -14,12 +14,15 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
   overrideEventListeners();
 
+  const recordingOptions = {
+    recordHoverEvents: false,
+    searchForEventListeners: false
+  };
   const filters = {
     idName: [], className: [], tagName: [], attr: [],
   };
 
   const events = ['click', 'dbclick', 'change', 'select', 'submit', 'mouseenter', 'mouseover'];
-  const overrideListeners = ['click', 'mouseenter', 'mouseover'];
 
   function isValidRegex(str) {
     let isValid = true;
@@ -34,7 +37,12 @@ if (!window.loadsterRecorderScriptsLoaded) {
   }
 
   function updateFilters(options = {}) {
-    const { attrRegExp, idRegExp, customPatterns } = options;
+    const { attrRegExp, idRegExp, customPatterns, recordHoverEvents, searchForEventListeners } = options;
+
+    Object.assign(recordingOptions, {
+      recordHoverEvents,
+      searchForEventListeners
+    });
 
     if (attrRegExp && isValidRegex(attrRegExp)) {
       filters.attr.push(new RegExp(attrRegExp));
@@ -61,6 +69,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
   const recordEvent = (e) => {
     if (!enabled) return;
+    if (!recordingOptions.recordHoverEvents && ['mouseover', 'mouseenter'].includes(e.type)) return;
 
     /*
      * We explicitly catch any errors and swallow them, as none node-type events are also ingested.
@@ -76,22 +85,12 @@ if (!window.loadsterRecorderScriptsLoaded) {
       }
 
       let element = e.target;
-      let action = e.type;
 
-      if (overrideListeners.includes(action)) {
-        const elementWithListener = getElementWithEventListeners(e.target, action);
-
-        if (['click'].includes(action)) {
-          element = elementWithListener || e.target;
-        } else if (['mouseenter', 'mouseover'].includes(action)) {
-          element = elementWithListener;
-          action = 'hover';
-        }
+      if (recordingOptions.searchForEventListeners && ['click', 'mouseenter', 'mouseover'].includes(e.type)) {
+        element = getElementWithEventListeners(e.target, e.type);
       }
 
-      if (!element) {
-        return;
-      }
+      if (!element) return;
 
       addTargetAttributes(element, attrs);
 
@@ -104,7 +103,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
         selectors: selectors,
         'value': element.value,
         'tagName': element.tagName,
-        'action': action,
+        'action': ['mouseenter', 'mouseover'].includes(e.type) ? 'hover' : e.type,
         attrs,
         'keyboard': {
           'alt': e.altKey, 'shift': e.shiftKey, 'ctrl': e.ctrlKey, 'meta': e.metaKey
@@ -222,7 +221,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
   function getElementWithEventListeners(el, listenerType) {
     let currentElement = el;
     let level = 0;
-    const maxLevel = 10;
+    const maxLevel = 100;
 
     if (typeof el.getLoadsterCapturedEventListeners !== 'function') {
       return; // no override function
