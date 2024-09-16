@@ -1,0 +1,4 @@
+chromiumBinary: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+firefoxDesktop: /Applications/Firefox.app/Contents/MacOS/firefox
+startUrl:
+  - http://localhost:8082/dashboard/

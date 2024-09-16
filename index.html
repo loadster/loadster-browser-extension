@@ -1,0 +1,142 @@
+<!doctype html>
+<!--
+ This page is shown when the extension button is clicked, because the
+ "browser_action" field in manifest.json contains the "default_popup" key with
+ value "index.html".
+ -->
+<html>
+<head>
+  <title>Loadster Recorder Browser Extension</title>
+  <style>
+    body {
+      font-family: "Segoe UI", "Lucida Grande", Tahoma, sans-serif;
+      font-size: 100%;
+      background: #f9f9f9;
+      color: #000000;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      cursor: default;
+      user-select: none !important;
+      padding: 0;
+      margin: 0;
+      width: 250px;
+    }
+
+    .logo-bar {
+      display: flex;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-content: center;
+      flex-direction: column;
+      padding: 0 40px;
+      min-height: 100px;
+      font-size: 10px;
+      font-weight: bold;
+      text-decoration: none;
+      flex-grow: 1;
+      color: white;
+      text-transform: uppercase;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+    }
+
+    .logo span {
+      transform: skewX(-9deg);
+    }
+
+    #loadster {
+      background: #2d2d2d;
+    }
+
+    .panel {
+      background: #2d2d2d;
+      clear: both;
+      margin: 0 0;
+      padding: 50px 0;
+      width: 100%;
+    }
+
+    @keyframes pulsate {
+      0% {
+        opacity: 1.0;
+      }
+      50% {
+        opacity: 0.5;
+      }
+      100% {
+        opacity: 1.0;
+      }
+    }
+
+    #rec {
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      background: rgba(82, 32, 32, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 10px;
+    }
+
+    .rec-led {
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      background: #e54904;
+      box-shadow: 0 0 10px #e54904;
+      opacity: 0;
+    }
+
+    #status-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #status-panel.enabled .rec-led {
+      animation: pulsate 1.5s ease-in-out;
+      animation-iteration-count: infinite;
+    }
+
+    #status-panel #status::after {
+      text-transform: uppercase;
+      font-size: 12px;
+      font-weight: bold;
+      color: #808080;
+      content: "Not Recording";
+    }
+
+    #status-panel.enabled #status::after {
+      color: #fff;
+      content: "Recording Script";
+    }
+
+  </style>
+  <script src="src/popup.js"></script>
+</head>
+<body>
+<div id="status-panel" class="panel">
+  <div id="rec">
+    <div class="rec-led"></div>
+  </div>
+  <div id="status"></div>
+</div>
+<div class="logo-bar">
+  <a href="https://loadster.app" target="_blank" class="logo" id="loadster">
+    <img title="Loadster" src="loadster-logo.svg"/>
+  </a>
+</div>
+</body>
+</html>
+
