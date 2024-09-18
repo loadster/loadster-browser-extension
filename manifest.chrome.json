@@ -28,7 +28,6 @@
     }
   ],
   "permissions": [
-    "storage",
     "scripting",
     "webRequest",
     "webNavigation"
