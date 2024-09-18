@@ -25,7 +25,6 @@
     }
   ],
   "permissions": [
-    "storage",
     "webRequest",
     "webNavigation",
     "*://*/*"
