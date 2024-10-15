@@ -87,7 +87,9 @@ if (!window.loadsterRecorderScriptsLoaded) {
       let element = e.target;
 
       if (recordingOptions.searchForEventListeners && ['click', 'mouseenter', 'mouseover'].includes(e.type)) {
-        element = getElementWithEventListeners(e.target, e.type);
+        if (!e.target.getAttribute('href')) {
+          element = getElementWithEventListeners(e.target, e.type);
+        }
       }
 
       if (!element) return;
