@@ -15,8 +15,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
   overrideEventListeners();
 
   const recordingOptions = {
-    recordHoverEvents: false,
-    searchForEventListeners: false
+    recordHoverEvents: 'none', // 'none' | 'js' | 'all'
+    recordClickEvents: 'exact' // 'exact' | 'js'
   };
   const filters = {
     idName: [], className: [], tagName: [], attr: [],
@@ -37,12 +37,20 @@ if (!window.loadsterRecorderScriptsLoaded) {
   }
 
   function updateFilters(options = {}) {
-    const { attrRegExp, idRegExp, customPatterns, recordHoverEvents, searchForEventListeners } = options;
+    const { customPatterns } = options;
 
-    Object.assign(recordingOptions, {
-      recordHoverEvents,
-      searchForEventListeners
-    });
+    /**
+     * @deprecated use customPatterns from v26
+     */
+    const attrRegExp = options.attrRegExp;
+    /**
+     * @deprecated use customPatterns from v26
+     */
+    const idRegExp = options.idRegExp;
+
+    Object.assign(recordingOptions, options);
+
+    console.log(recordingOptions);
 
     if (attrRegExp && isValidRegex(attrRegExp)) {
       filters.attr.push(new RegExp(attrRegExp));
@@ -50,6 +58,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
     if (idRegExp && isValidRegex(idRegExp)) {
       filters.idName.push(new RegExp(idRegExp));
     }
+
     if (customPatterns && customPatterns.length) {
       customPatterns.forEach(f => {
         if (filters.hasOwnProperty(f.key) && f.value && f.value.trim() && isValidRegex(f.value)) {
@@ -69,7 +78,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
   const recordEvent = (e) => {
     if (!enabled) return;
-    if (!recordingOptions.recordHoverEvents && ['mouseover', 'mouseenter'].includes(e.type)) return;
+    if (!['js', 'all'].includes(recordingOptions.recordHoverEvents) && ['mouseover', 'mouseenter'].includes(e.type)) return;
 
     /*
      * We explicitly catch any errors and swallow them, as none node-type events are also ingested.
@@ -86,10 +95,12 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
       let element = e.target;
 
-      if (recordingOptions.searchForEventListeners && ['click', 'mouseenter', 'mouseover'].includes(e.type)) {
+      if (recordingOptions.recordClickEvents === 'js' && ['click', 'mouseenter', 'mouseover'].includes(e.type)) {
         if (e.type === 'click' && e.target.getAttribute('href')) {
+          console.log('use exact link', recordingOptions);
           // use original element
         } else {
+          console.log('look for event listener', recordingOptions);
           element = getElementWithEventListeners(e.target, e.type);
         }
       }
@@ -103,7 +114,6 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
       const msg = {
         'timestamp': Date.now(),
-        selector: selectors[0], // bwd
         selectors: selectors,
         'value': element.value,
         'tagName': element.tagName,
