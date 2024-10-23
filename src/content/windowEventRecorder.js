@@ -50,8 +50,6 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
     Object.assign(recordingOptions, options);
 
-    console.log(recordingOptions);
-
     if (attrRegExp && isValidRegex(attrRegExp)) {
       filters.attr.push(new RegExp(attrRegExp));
     }
@@ -97,10 +95,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
       if (recordingOptions.recordClickEvents === 'js' && ['click', 'mouseenter', 'mouseover'].includes(e.type)) {
         if (e.type === 'click' && e.target.getAttribute('href')) {
-          console.log('use exact link', recordingOptions);
           // use original element
         } else {
-          console.log('look for event listener', recordingOptions);
           element = getElementWithEventListeners(e.target, e.type);
         }
       }
@@ -109,12 +105,12 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
       addTargetAttributes(element, attrs);
 
-      const selectors = getCssSelectors(element, attrs.frameSelector);
-      const textSelector = getTextSelector(element, attrs.frameSelector);
-
       const msg = {
         'timestamp': Date.now(),
-        selectors: selectors,
+        selectors: {
+          ...getCssSelectors(element, attrs.frameSelector),
+          textSelector: getTextSelector(element, attrs.frameSelector)
+        },
         'value': element.value,
         'tagName': element.tagName,
         'action': ['mouseenter', 'mouseover'].includes(e.type) ? 'hover' : e.type,
@@ -123,7 +119,6 @@ if (!window.loadsterRecorderScriptsLoaded) {
           'alt': e.altKey, 'shift': e.shiftKey, 'ctrl': e.ctrlKey, 'meta': e.metaKey
         },
         'textContent': element.textContent,
-        'textSelector': textSelector,
         'href': element.href ? element.href : null
       };
 
@@ -140,34 +135,90 @@ if (!window.loadsterRecorderScriptsLoaded) {
     const attrFilter = (name, value) => !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name)) && !filters.idName.some(p => p.test(value));
 
     // https://github.com/antonmedv/finder?tab=readme-ov-file#configuration
-    return [
-      tryFindSelector(element,{
+    const uniqueSelectors = new Set();
+
+    const idSelectors = [
+      tryFindSelector(element, {
         'idName': idFilter,
         'className': classFilter,
         'tagName': tagFilter,
         'attr': attrFilter,
+        seedMinLength: 4,
+        optimizedMinLength: 2,
       }),
       tryFindSelector(element, {
-        'idName':() => false,
+        'idName': idFilter,
+        'className': () => false,
+        'tagName': () => false,
+        'attr': () => false,
+        seedMinLength: 1,
+        optimizedMinLength: 2,
+      })
+    ]
+      .map(sel => sel ? `${frameSelector} ${sel}`.trim() : null)
+      .filter((selector) => {
+        if (uniqueSelectors.has(selector)) {
+          return false;
+        } else {
+          uniqueSelectors.add(selector);
+          return true;
+        }
+      });
+
+    const classSelectors = [
+      tryFindSelector(element, {
+        'idName': () => false,
         'className': classFilter,
         'tagName': () => false,
         'attr': () => false,
+        seedMinLength: 4,
+        optimizedMinLength: 2,
       }),
       tryFindSelector(element, {
-        'idName':() => false,
-        'className': () => false,
-        'tagName': tagFilter,
-        'attr': () => false,
-      }),
-      tryFindSelector(element, {
-        'idName':() => false,
-        'className': () => false,
+        'idName': () => false,
+        'className': classFilter,
         'tagName': () => false,
-        'attr': attrFilter,
-      })
+        'attr': () => true,
+        seedMinLength: 1,
+        optimizedMinLength: 2,
+      }),
     ]
-      .filter((sel, index, arr) => !!sel && arr.indexOf(sel) === index)
-      .map(sel => `${frameSelector} ${sel}`.trim());
+      .map(sel => sel ? `${frameSelector} ${sel}`.trim() : null)
+      .filter((selector) => {
+        if (uniqueSelectors.has(selector)) {
+          return false;
+        } else {
+          uniqueSelectors.add(selector);
+          return true;
+        }
+      });
+
+    const otherSelectors = [
+      tryFindSelector(element, {
+        seedMinLength: 4,
+        optimizedMinLength: 2,
+      }),
+      tryFindSelector(element, {
+        attr: () => true,
+        seedMinLength: 1,
+        optimizedMinLength: 2,
+      }),
+    ]
+      .map(sel => sel ? `${frameSelector} ${sel}`.trim() : null)
+      .filter((selector) => {
+        if (uniqueSelectors.has(selector)) {
+          return false;
+        } else {
+          uniqueSelectors.add(selector);
+          return true;
+        }
+      });
+
+    return {
+      idSelectors,
+      classSelectors,
+      otherSelectors
+    };
   }
 
   function tryFindSelector(element, options) {
