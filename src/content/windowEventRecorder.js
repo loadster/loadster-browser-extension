@@ -37,12 +37,12 @@ if (!window.loadsterRecorderScriptsLoaded) {
   }
 
   function updateFilters(options = {}) {
-    const { customPatterns } = options;
+    const { selectorFilters } = options;
 
     Object.assign(recordingOptions, options);
 
-    if (customPatterns && customPatterns.length) {
-      customPatterns.forEach(f => {
+    if (selectorFilters && selectorFilters.length) {
+      selectorFilters.forEach(f => {
         if (filters.hasOwnProperty(f.key) && f.value && f.value.trim() && isValidRegex(f.value)) {
           const regexp = new RegExp(f.value);
 
