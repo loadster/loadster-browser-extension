@@ -19,6 +19,13 @@ export default class BrowserRecorder extends Recorder {
       this.recording = true;
 
       await this.createFirstTab(message.data.value);
+      await this.uploadBrowserEvent({
+        action: 'navigate',
+        tabId: this.tabIds[0],
+        data: {
+          url: message.data.value
+        }
+      });
     });
 
     onMessage(USER_ACTION, msg => this.uploadBrowserEvent(msg.data));
@@ -117,21 +124,11 @@ export default class BrowserRecorder extends Recorder {
     const { tabId, frameId, frameType, transitionType, ...data } = details;
 
     if (this.tabIds.includes(tabId)) {
-      if (isFirefox) {
+      if (isFirefox || frameType === 'outermost_frame') {
         await this.injectForegroundScripts(tabId);
-
-        if (['link', 'typed', 'form_submit'].includes(transitionType)) {
-          await this.uploadBrowserEvent({ action: 'navigate', data });
-        }
-
-      } else {
-        if (frameType === 'outermost_frame') {
-          await this.injectForegroundScripts(tabId); // inject content scripts to all frames
-        }
-
-        if (['link', 'typed'].includes(transitionType)) {
-          await this.uploadBrowserEvent({ action: 'navigate', data });
-        }
+      }
+      if (['typed'].includes(transitionType)) {
+        await this.uploadBrowserEvent({ action: 'navigate', data });
       }
     }
   }
