@@ -53,6 +53,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
     if (attrRegExp && isValidRegex(attrRegExp)) {
       filters.attr.push(new RegExp(attrRegExp));
     }
+
     if (idRegExp && isValidRegex(idRegExp)) {
       filters.idName.push(new RegExp(idRegExp));
     }
@@ -131,33 +132,30 @@ if (!window.loadsterRecorderScriptsLoaded) {
     }
   };
 
-  function getCssSelectors (element, frameSelector) {
+  function getCssSelectors(element, frameSelector) {
     const idFilter = (value) => !filters.idName.some(p => p.test(value));
-    const classFilter = (value) => !filters.idName.some(p => p.test(value));
+    const classFilter = (value) => !filters.className.some(p => p.test(value));
     const tagFilter = (name) => !filters.tagName.some(p => p.test(name));
-    const attrFilter = (name, value) => !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name)) && !filters.idName.some(p => p.test(value));
+    const attrFilter = (name, value) => !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name)) && !filters.attr.some(p => p.test(value));
 
     // https://github.com/antonmedv/finder?tab=readme-ov-file#configuration
     const uniqueSelectors = new Set();
 
+    /**
+     * ID selectors should be of the standard #id format. There will only be one if the element
+     * has a unique ID and the ID filter doesn't forbid it.
+     */
     const idSelectors = [
-      tryFindSelector(element, {
-        'idName': idFilter,
-        'className': classFilter,
-        'tagName': tagFilter,
-        'attr': attrFilter,
-        seedMinLength: 4,
-        optimizedMinLength: 2,
-      }),
       tryFindSelector(element, {
         'idName': idFilter,
         'className': () => false,
         'tagName': () => false,
         'attr': () => false,
         seedMinLength: 1,
-        optimizedMinLength: 2,
+        optimizedMinLength: 1
       })
     ]
+      .filter(sel => sel && sel.trim().startsWith('#'))
       .map(sel => sel ? `${frameSelector} ${sel}`.trim() : null)
       .filter((selector) => {
         if (uniqueSelectors.has(selector)) {
@@ -168,24 +166,30 @@ if (!window.loadsterRecorderScriptsLoaded) {
         }
       });
 
+    /**
+     * Class selectors should start with a dot. We prefer one as short
+     * as possible to uniquely identify the element, but fall back on a longer one
+     * with multiple parts if required.
+     */
     const classSelectors = [
       tryFindSelector(element, {
         'idName': () => false,
         'className': classFilter,
         'tagName': () => false,
         'attr': () => false,
-        seedMinLength: 4,
-        optimizedMinLength: 2,
+        seedMinLength: 1,
+        optimizedMinLength: 1
       }),
       tryFindSelector(element, {
         'idName': () => false,
         'className': classFilter,
         'tagName': () => false,
-        'attr': () => true,
-        seedMinLength: 1,
-        optimizedMinLength: 2,
-      }),
+        'attr': () => false,
+        seedMinLength: 4,
+        optimizedMinLength: 2
+      })
     ]
+      .filter(sel => sel && /^\.\w+.*$/.test(sel.trim()))
       .map(sel => sel ? `${frameSelector} ${sel}`.trim() : null)
       .filter((selector) => {
         if (uniqueSelectors.has(selector)) {
@@ -196,16 +200,27 @@ if (!window.loadsterRecorderScriptsLoaded) {
         }
       });
 
+    /**
+     * Other selectors are preferably attribute selectors, but may fall back on nested
+     * tag name selectors or even nth-child wildcards, etc.
+     */
     const otherSelectors = [
       tryFindSelector(element, {
-        seedMinLength: 4,
-        optimizedMinLength: 2,
+        'idName': () => false,
+        'className': () => false,
+        'tagName': tagFilter,
+        'attr': attrFilter,
+        seedMinLength: 1,
+        optimizedMinLength: 1
       }),
       tryFindSelector(element, {
-        attr: () => true,
-        seedMinLength: 1,
-        optimizedMinLength: 2,
-      }),
+        'idName': () => false,
+        'className': () => false,
+        'tagName': tagFilter,
+        'attr': attrFilter,
+        seedMinLength: 4,
+        optimizedMinLength: 2
+      })
     ]
       .map(sel => sel ? `${frameSelector} ${sel}`.trim() : null)
       .filter((selector) => {
