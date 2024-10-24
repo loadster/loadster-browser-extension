@@ -60,7 +60,10 @@ if (!window.loadsterRecorderScriptsLoaded) {
     if (customPatterns && customPatterns.length) {
       customPatterns.forEach(f => {
         if (filters.hasOwnProperty(f.key) && f.value && f.value.trim() && isValidRegex(f.value)) {
-          filters[f.key].push(new RegExp(f.value));
+          const regexp = new RegExp(f.value);
+          if (!filters[f.key].find(r => String(r) === String(regexp))) {
+            filters[f.key].push(regexp);
+          }
         }
       });
     }
