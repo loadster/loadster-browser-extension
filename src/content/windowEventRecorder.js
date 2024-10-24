@@ -39,29 +39,13 @@ if (!window.loadsterRecorderScriptsLoaded) {
   function updateFilters(options = {}) {
     const { customPatterns } = options;
 
-    /**
-     * @deprecated use customPatterns from v26
-     */
-    const attrRegExp = options.attrRegExp;
-    /**
-     * @deprecated use customPatterns from v26
-     */
-    const idRegExp = options.idRegExp;
-
     Object.assign(recordingOptions, options);
-
-    if (attrRegExp && isValidRegex(attrRegExp)) {
-      filters.attr.push(new RegExp(attrRegExp));
-    }
-
-    if (idRegExp && isValidRegex(idRegExp)) {
-      filters.idName.push(new RegExp(idRegExp));
-    }
 
     if (customPatterns && customPatterns.length) {
       customPatterns.forEach(f => {
         if (filters.hasOwnProperty(f.key) && f.value && f.value.trim() && isValidRegex(f.value)) {
           const regexp = new RegExp(f.value);
+
           if (!filters[f.key].find(r => String(r) === String(regexp))) {
             filters[f.key].push(regexp);
           }
