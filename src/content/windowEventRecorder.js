@@ -15,8 +15,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
   overrideEventListeners();
 
   const recordingOptions = {
-    recordHoverEvents: false,
-    searchForEventListeners: false
+    recordHoverEvents: 'none', // 'none' | 'auto' | 'all'
+    recordClickEvents: 'exact' // 'exact' | 'closest'
   };
   const filters = {
     idName: [], className: [], tagName: [], attr: [],
@@ -37,23 +37,18 @@ if (!window.loadsterRecorderScriptsLoaded) {
   }
 
   function updateFilters(options = {}) {
-    const { attrRegExp, idRegExp, customPatterns, recordHoverEvents, searchForEventListeners } = options;
+    const { selectorFilters } = options;
 
-    Object.assign(recordingOptions, {
-      recordHoverEvents,
-      searchForEventListeners
-    });
+    Object.assign(recordingOptions, options);
 
-    if (attrRegExp && isValidRegex(attrRegExp)) {
-      filters.attr.push(new RegExp(attrRegExp));
-    }
-    if (idRegExp && isValidRegex(idRegExp)) {
-      filters.idName.push(new RegExp(idRegExp));
-    }
-    if (customPatterns && customPatterns.length) {
-      customPatterns.forEach(f => {
+    if (selectorFilters && selectorFilters.length) {
+      selectorFilters.forEach(f => {
         if (filters.hasOwnProperty(f.key) && f.value && f.value.trim() && isValidRegex(f.value)) {
-          filters[f.key].push(new RegExp(f.value));
+          const regexp = new RegExp(f.value);
+
+          if (!filters[f.key].find(r => String(r) === String(regexp))) {
+            filters[f.key].push(regexp);
+          }
         }
       });
     }
@@ -69,7 +64,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
   const recordEvent = (e) => {
     if (!enabled) return;
-    if (!recordingOptions.recordHoverEvents && ['mouseover', 'mouseenter'].includes(e.type)) return;
+    if (!['auto', 'all'].includes(recordingOptions.recordHoverEvents) && ['mouseover', 'mouseenter'].includes(e.type)) return;
 
     /*
      * We explicitly catch any errors and swallow them, as none node-type events are also ingested.
@@ -86,11 +81,19 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
       let element = e.target;
 
-      if (recordingOptions.searchForEventListeners && ['click', 'mouseenter', 'mouseover'].includes(e.type)) {
-        if (e.type === 'click' && e.target.getAttribute('href')) {
-          // use original element
+      if (e.type === 'click') {
+        if (recordingOptions.recordClickEvents === 'closest') {
+          element = getElementWithEventListeners(e.target, e.type, (el) => {
+            return el.getAttribute('href') || el.onclick;
+          });
+        }
+      } else if (['mouseenter', 'mouseover'].includes(e.type)) {
+        if (recordingOptions.recordHoverEvents === 'all') {
+          // use the element
+        } else if (recordingOptions.recordHoverEvents === 'auto' && getElementListener(e.target, e.type)) {
+          // use the element
         } else {
-          element = getElementWithEventListeners(e.target, e.type);
+          return;
         }
       }
 
@@ -98,13 +101,12 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
       addTargetAttributes(element, attrs);
 
-      const selectors = getCssSelectors(element, attrs.frameSelector);
-      const textSelector = getTextSelector(element, attrs.frameSelector);
-
       const msg = {
         'timestamp': Date.now(),
-        selector: selectors[0], // bwd
-        selectors: selectors,
+        selectors: {
+          ...getCssSelectors(element, attrs.frameSelector),
+          textSelector: getTextSelector(element, attrs.frameSelector)
+        },
         'value': element.value,
         'tagName': element.tagName,
         'action': ['mouseenter', 'mouseover'].includes(e.type) ? 'hover' : e.type,
@@ -113,7 +115,6 @@ if (!window.loadsterRecorderScriptsLoaded) {
           'alt': e.altKey, 'shift': e.shiftKey, 'ctrl': e.ctrlKey, 'meta': e.metaKey
         },
         'textContent': element.textContent,
-        'textSelector': textSelector,
         'href': element.href ? element.href : null
       };
 
@@ -123,41 +124,111 @@ if (!window.loadsterRecorderScriptsLoaded) {
     }
   };
 
-  function getCssSelectors (element, frameSelector) {
+  function getCssSelectors(element, frameSelector) {
     const idFilter = (value) => !filters.idName.some(p => p.test(value));
-    const classFilter = (value) => !filters.idName.some(p => p.test(value));
+    const classFilter = (value) => !filters.className.some(p => p.test(value));
     const tagFilter = (name) => !filters.tagName.some(p => p.test(name));
-    const attrFilter = (name, value) => !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name)) && !filters.idName.some(p => p.test(value));
+    const attrFilter = (name, value) => !['class', 'id', 'style'].includes(name) && !filters.attr.some(p => p.test(name)) && !filters.attr.some(p => p.test(value));
 
     // https://github.com/antonmedv/finder?tab=readme-ov-file#configuration
-    return [
-      tryFindSelector(element,{
+    const uniqueSelectors = new Set();
+
+    /**
+     * ID selectors should be of the standard #id format. There will only be one if the element
+     * has a unique ID and the ID filter doesn't forbid it.
+     */
+    const idSelectors = [
+      tryFindSelector(element, {
         'idName': idFilter,
-        'className': classFilter,
-        'tagName': tagFilter,
-        'attr': attrFilter,
-      }),
-      tryFindSelector(element, {
-        'idName':() => false,
-        'className': classFilter,
-        'tagName': () => false,
-        'attr': () => false,
-      }),
-      tryFindSelector(element, {
-        'idName':() => false,
-        'className': () => false,
-        'tagName': tagFilter,
-        'attr': () => false,
-      }),
-      tryFindSelector(element, {
-        'idName':() => false,
         'className': () => false,
         'tagName': () => false,
-        'attr': attrFilter,
+        'attr': () => false,
+        seedMinLength: 1,
+        optimizedMinLength: 1
       })
     ]
-      .filter((sel, index, arr) => !!sel && arr.indexOf(sel) === index)
-      .map(sel => `${frameSelector} ${sel}`.trim());
+      .filter(sel => sel && sel.trim().startsWith('#'))
+      .map(sel => sel ? `${frameSelector} ${sel}`.trim() : null)
+      .filter((selector) => {
+        if (uniqueSelectors.has(selector)) {
+          return false;
+        } else {
+          uniqueSelectors.add(selector);
+          return true;
+        }
+      });
+
+    /**
+     * Class selectors should start with a dot. We prefer one as short
+     * as possible to uniquely identify the element, but fall back on a longer one
+     * with multiple parts if required.
+     */
+    const classSelectors = [
+      tryFindSelector(element, {
+        'idName': () => false,
+        'className': classFilter,
+        'tagName': () => false,
+        'attr': () => false,
+        seedMinLength: 1,
+        optimizedMinLength: 1
+      }),
+      tryFindSelector(element, {
+        'idName': () => false,
+        'className': classFilter,
+        'tagName': () => false,
+        'attr': () => false,
+        seedMinLength: 4,
+        optimizedMinLength: 2
+      })
+    ]
+      .filter(sel => sel && /^\.\w+.*$/.test(sel.trim()))
+      .map(sel => sel ? `${frameSelector} ${sel}`.trim() : null)
+      .filter((selector) => {
+        if (uniqueSelectors.has(selector)) {
+          return false;
+        } else {
+          uniqueSelectors.add(selector);
+          return true;
+        }
+      });
+
+    /**
+     * Other selectors are preferably attribute selectors, but may fall back on nested
+     * tag name selectors or even nth-child wildcards, etc.
+     */
+    const otherSelectors = [
+      tryFindSelector(element, {
+        'idName': () => false,
+        'className': () => false,
+        'tagName': tagFilter,
+        'attr': attrFilter,
+        seedMinLength: 1,
+        optimizedMinLength: 1
+      }),
+      tryFindSelector(element, {
+        'idName': () => false,
+        'className': () => false,
+        'tagName': tagFilter,
+        'attr': attrFilter,
+        seedMinLength: 4,
+        optimizedMinLength: 2
+      })
+    ]
+      .map(sel => sel ? `${frameSelector} ${sel}`.trim() : null)
+      .filter((selector) => {
+        if (uniqueSelectors.has(selector)) {
+          return false;
+        } else {
+          uniqueSelectors.add(selector);
+          return true;
+        }
+      });
+
+    return {
+      idSelectors,
+      classSelectors,
+      otherSelectors
+    };
   }
 
   function tryFindSelector(element, options) {
@@ -222,42 +293,42 @@ if (!window.loadsterRecorderScriptsLoaded) {
     }
   }
 
-  function getElementWithEventListeners(el, listenerType) {
-    let currentElement = el;
+  function getElementWithEventListeners(originalElement, listenerType, pull) {
+    let currentElement = originalElement;
     let level = 0;
     const maxLevel = 100;
 
-    if (typeof el.getLoadsterCapturedEventListeners !== 'function') {
-      return; // no override function
+    if (typeof originalElement.getLoadsterCapturedEventListeners !== 'function') {
+      return originalElement;
     }
 
     while (currentElement && level <= maxLevel) {
-      if (el !== currentElement && currentElement.tagName === 'HTML') {
-        return;  // The script reached <html> and found no listeners => return the original element
+      // The script reached <html> and found no listeners => return the original element
+      if (originalElement !== currentElement && currentElement.tagName === 'HTML') {
+        return originalElement;
       }
 
-      let listener = null;
-
-      if (listenerType === 'click') {
-        listener = currentElement.onclick || getElementListener(currentElement, listenerType);
-      } else if (['mouseover', 'mouseenter'].includes(listenerType)) {
-        listener = getElementListener(currentElement, listenerType);
-
-        // For the hovers only, return the original element
-        if (listener) {
-          return el;
-        }
-      } else {
-        listener = getElementListener(currentElement, listenerType);
+      // Return the current element if it matches the filter condition
+      if (currentElement && typeof pull === 'function' && pull(currentElement)) {
+        return currentElement;
       }
+
+      const listener = getElementListener(currentElement, listenerType);
 
       if (listener) {
-        return currentElement; // Found element with matching listener
+        if (['mouseover', 'mouseenter'].includes(listenerType)) {
+          return originalElement; // For the hovers only, return the original element
+        } else {
+          return currentElement; // Found element with matching listener
+        }
       }
 
       currentElement = currentElement.parentElement;
       level++;
     }
+
+    // Fallback to the original element after {maxLevel} attempts
+    return originalElement;
   }
 
   events.forEach((type) => {
