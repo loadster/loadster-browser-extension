@@ -15,8 +15,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
   overrideEventListeners();
 
   const recordingOptions = {
-    recordHoverEvents: 'none', // 'none' | 'js' | 'all'
-    recordClickEvents: 'exact' // 'exact' | 'js'
+    recordHoverEvents: 'none', // 'none' | 'auto' | 'all'
+    recordClickEvents: 'exact' // 'exact' | 'closest'
   };
   const filters = {
     idName: [], className: [], tagName: [], attr: [],
@@ -37,7 +37,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
   }
 
   function updateFilters(options = {}) {
-    const { selectorFilters } = options;
+    const {selectorFilters} = options;
 
     Object.assign(recordingOptions, options);
 
@@ -64,7 +64,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
   const recordEvent = (e) => {
     if (!enabled) return;
-    if (!['js', 'all'].includes(recordingOptions.recordHoverEvents) && ['mouseover', 'mouseenter'].includes(e.type)) return;
+    if (!['auto', 'all'].includes(recordingOptions.recordHoverEvents) && ['mouseover', 'mouseenter'].includes(e.type)) return;
 
     /*
      * We explicitly catch any errors and swallow them, as none node-type events are also ingested.
@@ -81,11 +81,18 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
       let element = e.target;
 
-      if (recordingOptions.recordClickEvents === 'js' && ['click', 'mouseenter', 'mouseover'].includes(e.type)) {
-        if (e.type === 'click' && e.target.getAttribute('href')) {
-          // use original element
-        } else {
+      if (e.type === 'click') {
+        if (recordingOptions.recordClickEvents === 'closest' && !e.target.getAttribute('href')) {
+          // TODO - if a close ancestor has an href, treat that similarly
           element = getElementWithEventListeners(e.target, e.type);
+        }
+      } else if (['mouseenter', 'mouseover'].includes(e.type)) {
+        if (recordingOptions.recordHoverEvents === 'all') {
+          // use the element
+        } else if (recordingOptions.recordHoverEvents === 'auto' && getElementListener(e.target, e.type)) {
+          // use the element
+        } else {
+          return;
         }
       }
 
