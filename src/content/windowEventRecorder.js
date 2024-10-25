@@ -37,7 +37,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
   }
 
   function updateFilters(options = {}) {
-    const {selectorFilters} = options;
+    const { selectorFilters } = options;
 
     Object.assign(recordingOptions, options);
 
@@ -82,9 +82,10 @@ if (!window.loadsterRecorderScriptsLoaded) {
       let element = e.target;
 
       if (e.type === 'click') {
-        if (recordingOptions.recordClickEvents === 'closest' && !e.target.getAttribute('href')) {
-          // TODO - if a close ancestor has an href, treat that similarly
-          element = getElementWithEventListeners(e.target, e.type);
+        if (recordingOptions.recordClickEvents === 'closest') {
+          element = getElementWithEventListeners(e.target, e.type, (el) => {
+            return el.getAttribute('href') || el.onclick;
+          });
         }
       } else if (['mouseenter', 'mouseover'].includes(e.type)) {
         if (recordingOptions.recordHoverEvents === 'all') {
@@ -292,42 +293,42 @@ if (!window.loadsterRecorderScriptsLoaded) {
     }
   }
 
-  function getElementWithEventListeners(el, listenerType) {
-    let currentElement = el;
+  function getElementWithEventListeners(originalElement, listenerType, pull) {
+    let currentElement = originalElement;
     let level = 0;
     const maxLevel = 100;
 
-    if (typeof el.getLoadsterCapturedEventListeners !== 'function') {
-      return; // no override function
+    if (typeof originalElement.getLoadsterCapturedEventListeners !== 'function') {
+      return originalElement;
     }
 
     while (currentElement && level <= maxLevel) {
-      if (el !== currentElement && currentElement.tagName === 'HTML') {
-        return;  // The script reached <html> and found no listeners => return the original element
+      // The script reached <html> and found no listeners => return the original element
+      if (originalElement !== currentElement && currentElement.tagName === 'HTML') {
+        return originalElement;
       }
 
-      let listener = null;
-
-      if (listenerType === 'click') {
-        listener = currentElement.onclick || getElementListener(currentElement, listenerType);
-      } else if (['mouseover', 'mouseenter'].includes(listenerType)) {
-        listener = getElementListener(currentElement, listenerType);
-
-        // For the hovers only, return the original element
-        if (listener) {
-          return el;
-        }
-      } else {
-        listener = getElementListener(currentElement, listenerType);
+      // Return the current element if it matches the filter condition
+      if (currentElement && typeof pull === 'function' && pull(currentElement)) {
+        return currentElement;
       }
+
+      const listener = getElementListener(currentElement, listenerType);
 
       if (listener) {
-        return currentElement; // Found element with matching listener
+        if (['mouseover', 'mouseenter'].includes(listenerType)) {
+          return originalElement; // For the hovers only, return the original element
+        } else {
+          return currentElement; // Found element with matching listener
+        }
       }
 
       currentElement = currentElement.parentElement;
       level++;
     }
+
+    // Fallback to the original element after {maxLevel} attempts
+    return originalElement;
   }
 
   events.forEach((type) => {
