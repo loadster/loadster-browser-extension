@@ -17,7 +17,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
   overrideEventListeners();
 
   const recordingOptions = {
-    recordHoverEvents: 'none', // 'none' | 'auto' | 'all'
+    recordHoverEvents: 'none', // 'none' | 'auto' | 'css' | 'all'
     recordClickEvents: 'exact' // 'exact' | 'closest'
   };
   const filters = {
@@ -94,7 +94,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
           // use the element
         } else if (recordingOptions.recordHoverEvents === 'auto' && getElementListener(e.target, e.type)) {
           // use the element
-        } else if (recordingOptions.recordHoverEvents === 'css' && elementHasCSSHoverRule(e.target)) {
+        } else if (recordingOptions.recordHoverEvents === 'css' && e.type === 'mouseenter' && elementHasCSSHoverRule(e.target)) {
           // use the element
         } else {
           return;
@@ -102,6 +102,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
       }
 
       if (!element) return;
+
+      console.log(e.type);
 
       addTargetAttributes(element, attrs);
 
