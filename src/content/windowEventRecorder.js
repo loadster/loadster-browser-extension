@@ -1,6 +1,6 @@
 import { finder } from '@medv/finder';
 import { RECORDING_STATUS, USER_ACTION } from '../constants.js';
-import { overrideEventListeners, createMessage } from '../utils/windowUtils.js';
+import { overrideEventListeners, setupCSSHoverEventListener, createMessage } from '../utils/windowUtils.js';
 
 if (!window.loadsterRecorderScriptsLoaded) {
   window.loadsterRecorderScriptsLoaded = true;
@@ -11,6 +11,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
     enabled = event.detail.enabled;
     updateFilters(event.detail.options);
   });
+
+  const { elementHasCSSHoverRule } = setupCSSHoverEventListener(false);
 
   overrideEventListeners();
 
@@ -64,7 +66,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
   const recordEvent = (e) => {
     if (!enabled) return;
-    if (!['auto', 'all'].includes(recordingOptions.recordHoverEvents) && ['mouseover', 'mouseenter'].includes(e.type)) return;
+    if (!['auto', 'all', 'css'].includes(recordingOptions.recordHoverEvents) && ['mouseover', 'mouseenter'].includes(e.type)) return;
 
     /*
      * We explicitly catch any errors and swallow them, as none node-type events are also ingested.
@@ -91,6 +93,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
         if (recordingOptions.recordHoverEvents === 'all') {
           // use the element
         } else if (recordingOptions.recordHoverEvents === 'auto' && getElementListener(e.target, e.type)) {
+          // use the element
+        } else if (recordingOptions.recordHoverEvents === 'css' && elementHasCSSHoverRule(e.target)) {
           // use the element
         } else {
           return;
