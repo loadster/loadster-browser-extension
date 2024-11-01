@@ -59,6 +59,10 @@ export function createMessage(msg) {
   }
 }
 
+// Remove the :hover part of the selector to match the element itself
+function getBaseSelector(rule) {
+  return rule.selectorText.replace(':hover', '').trim();
+}
 
 // Get all CSSStyleRule[] from document that use :hover
 function getAllHoverRules() {
@@ -85,8 +89,7 @@ function getAllHoverRules() {
 // Get CSStyleRule in given collection
 function getElementCSSHoverRule(hoverRules, targetElement) {
   for (const rule of hoverRules) {
-    // Remove the :hover part of the selector to match the element itself
-    const baseSelector = rule.selectorText.replace(':hover', '').trim();
+    const baseSelector = getBaseSelector(rule);
 
     if (targetElement.matches(baseSelector)) {
       return rule;
@@ -105,6 +108,14 @@ export function setupCSSHoverEventListener(immediate = true) {
     });
   }
 
+  function getElementWithCSSHoverRule(targetElement) {
+    return hoverRules.map(hoverRule => {
+      const baseSelector = getBaseSelector(hoverRule);
+
+      return targetElement.closest(baseSelector);
+    }).find(el => !!el);
+  }
+
   function elementHasCSSHoverRule(targetElement) {
     const rule = getElementCSSHoverRule(hoverRules, targetElement);
 
@@ -114,6 +125,7 @@ export function setupCSSHoverEventListener(immediate = true) {
   }
 
   return {
+    getElementWithCSSHoverRule,
     elementHasCSSHoverRule
   };
 }

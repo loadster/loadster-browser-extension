@@ -12,7 +12,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
     updateFilters(event.detail.options);
   });
 
-  const { elementHasCSSHoverRule } = setupCSSHoverEventListener(false);
+  const { getElementWithCSSHoverRule, elementHasCSSHoverRule } = setupCSSHoverEventListener(false);
 
   overrideEventListeners();
 
@@ -92,8 +92,22 @@ if (!window.loadsterRecorderScriptsLoaded) {
       } else if (['mouseenter', 'mouseover'].includes(e.type)) {
         if (recordingOptions.recordHoverEvents === 'all') {
           // use the element
-        } else if (recordingOptions.recordHoverEvents === 'auto' && e.type === 'mouseover' && elementHasCSSHoverRule(e.target)) {
-          // use the element
+        } else if (recordingOptions.recordHoverEvents === 'auto' && e.type === 'mouseover') {
+          if (elementHasCSSHoverRule(e.target)) {
+            // use the exact element
+          } else {
+            element = getElementWithCSSHoverRule(e.target);
+
+            if (element) {
+              if (e.relatedTarget && element.contains(e.relatedTarget)) {
+                // console.log(`ignoring hover because it was already hovering a relative`, e.target, e.relatedTarget);
+
+                return;
+              } else {
+                // use the element's closest ancestor with a hover rule
+              }
+            }
+          }
         } else if (recordingOptions.recordHoverEvents === 'auto' && getElementListener(e.target, e.type)) {
           // use the element
         } else {
