@@ -17,7 +17,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
   overrideEventListeners();
 
   const recordingOptions = {
-    recordHoverEvents: 'none', // 'none' | 'auto' | 'css' | 'all'
+    recordHoverEvents: 'none', // 'none' | 'auto' | 'all'
     recordClickEvents: 'exact' // 'exact' | 'closest'
   };
   const filters = {
@@ -66,7 +66,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
   const recordEvent = (e) => {
     if (!enabled) return;
-    if (!['auto', 'all', 'css'].includes(recordingOptions.recordHoverEvents) && ['mouseover', 'mouseenter'].includes(e.type)) return;
+    if (!['auto', 'all'].includes(recordingOptions.recordHoverEvents) && ['mouseover', 'mouseenter'].includes(e.type)) return;
 
     /*
      * We explicitly catch any errors and swallow them, as none node-type events are also ingested.
@@ -92,9 +92,9 @@ if (!window.loadsterRecorderScriptsLoaded) {
       } else if (['mouseenter', 'mouseover'].includes(e.type)) {
         if (recordingOptions.recordHoverEvents === 'all') {
           // use the element
-        } else if (recordingOptions.recordHoverEvents === 'auto' && getElementListener(e.target, e.type)) {
+        } else if (recordingOptions.recordHoverEvents === 'auto' && e.type === 'mouseover' && elementHasCSSHoverRule(e.target)) {
           // use the element
-        } else if (recordingOptions.recordHoverEvents === 'css' && e.type === 'mouseenter' && elementHasCSSHoverRule(e.target)) {
+        } else if (recordingOptions.recordHoverEvents === 'auto' && getElementListener(e.target, e.type)) {
           // use the element
         } else {
           return;
@@ -103,7 +103,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
       if (!element) return;
 
-      console.log(e.type);
+      // console.log(e.type);
 
       addTargetAttributes(element, attrs);
 

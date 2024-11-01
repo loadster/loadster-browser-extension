@@ -74,6 +74,7 @@ function getAllHoverRules() {
         }
       }
     } catch (e) {
+      // console.log(e);
       // console.warn('Could not access some stylesheets due to cross-origin policy.');
     }
   }
