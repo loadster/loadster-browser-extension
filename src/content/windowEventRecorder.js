@@ -106,6 +106,11 @@ if (!window.loadsterRecorderScriptsLoaded) {
               } else {
                 // use the element's closest ancestor with a hover rule
               }
+            } else {
+              if (getElementListener(e.target, e.type)) {
+                element = e.target;
+                // js listener found, use the original element
+              }
             }
           }
         } else if (recordingOptions.recordHoverEvents === 'auto' && getElementListener(e.target, e.type)) {
