@@ -58,3 +58,74 @@ export function createMessage(msg) {
     return msg;
   }
 }
+
+// Remove the :hover part of the selector to match the element itself
+function getBaseSelector(rule) {
+  return rule.selectorText.replace(':hover', '').trim();
+}
+
+// Get all CSSStyleRule[] from document that use :hover
+function getAllHoverRules() {
+  const hoverRules = [];
+
+  for (const stylesheet of document.styleSheets) {
+    try {
+      for (const rule of stylesheet.cssRules) {
+        if (rule instanceof CSSStyleRule) {
+          if (rule.selectorText.includes(':hover')) {
+            hoverRules.push(rule);
+          }
+        }
+      }
+    } catch (e) {
+      // console.log(e);
+      // console.warn('Could not access some stylesheets due to cross-origin policy.');
+    }
+  }
+
+  return hoverRules;
+}
+
+// Get CSStyleRule in given collection
+function getElementCSSHoverRule(hoverRules, targetElement) {
+  for (const rule of hoverRules) {
+    const baseSelector = getBaseSelector(rule);
+
+    if (targetElement.matches(baseSelector)) {
+      return rule;
+    }
+  }
+}
+
+export function setupCSSHoverEventListener(immediate = true) {
+  const hoverRules = [];
+
+  if (immediate) {
+    hoverRules.push(...getAllHoverRules());
+  } else {
+    document.addEventListener('DOMContentLoaded', () => {
+      hoverRules.push(...getAllHoverRules());
+    });
+  }
+
+  function getElementWithCSSHoverRule(targetElement) {
+    return hoverRules.map(hoverRule => {
+      const baseSelector = getBaseSelector(hoverRule);
+
+      return targetElement.closest(baseSelector);
+    }).find(el => !!el);
+  }
+
+  function elementHasCSSHoverRule(targetElement) {
+    const rule = getElementCSSHoverRule(hoverRules, targetElement);
+
+    // rule && (targetElement.style.border = '1px solid red'); // Debug
+
+    return !!rule;
+  }
+
+  return {
+    getElementWithCSSHoverRule,
+    elementHasCSSHoverRule
+  };
+}

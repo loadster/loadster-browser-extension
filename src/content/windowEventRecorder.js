@@ -1,6 +1,6 @@
 import { finder } from '@medv/finder';
 import { RECORDING_STATUS, USER_ACTION } from '../constants.js';
-import { overrideEventListeners, createMessage } from '../utils/windowUtils.js';
+import { overrideEventListeners, setupCSSHoverEventListener, createMessage } from '../utils/windowUtils.js';
 
 if (!window.loadsterRecorderScriptsLoaded) {
   window.loadsterRecorderScriptsLoaded = true;
@@ -11,6 +11,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
     enabled = event.detail.enabled;
     updateFilters(event.detail.options);
   });
+
+  const { getElementWithCSSHoverRule, elementHasCSSHoverRule } = setupCSSHoverEventListener(false);
 
   overrideEventListeners();
 
@@ -90,6 +92,27 @@ if (!window.loadsterRecorderScriptsLoaded) {
       } else if (['mouseenter', 'mouseover'].includes(e.type)) {
         if (recordingOptions.recordHoverEvents === 'all') {
           // use the element
+        } else if (recordingOptions.recordHoverEvents === 'auto' && e.type === 'mouseover') {
+          if (elementHasCSSHoverRule(e.target)) {
+            // use the exact element
+          } else {
+            element = getElementWithCSSHoverRule(e.target);
+
+            if (element) {
+              if (e.relatedTarget && element.contains(e.relatedTarget)) {
+                // console.log(`ignoring hover because it was already hovering a relative`, e.target, e.relatedTarget);
+
+                return;
+              } else {
+                // use the element's closest ancestor with a hover rule
+              }
+            } else {
+              if (getElementListener(e.target, e.type)) {
+                element = e.target;
+                // js listener found, use the original element
+              }
+            }
+          }
         } else if (recordingOptions.recordHoverEvents === 'auto' && getElementListener(e.target, e.type)) {
           // use the element
         } else {
@@ -98,6 +121,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
       }
 
       if (!element) return;
+
+      // console.log(e.type);
 
       addTargetAttributes(element, attrs);
 
