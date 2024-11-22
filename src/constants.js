@@ -6,6 +6,7 @@ export const PING = 'Ping';
 export const PONG = 'Pong';
 export const USER_ACTION = 'loadster_browser_event';
 export const OPTIONS = 'loadster_recording_options';
+export const RECORDING_TRACKING = 'loadster_recording_tracking';
 
 export const RECORDER_NAMESPACE = 'loadster-recorder-namespace';
 export const RECORDER_TYPE = {

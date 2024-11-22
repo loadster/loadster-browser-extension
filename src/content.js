@@ -1,6 +1,6 @@
 import browser from 'webextension-polyfill';
 import { sendMessage, onMessage, allowWindowMessaging } from 'webext-bridge/content-script';
-import { PONG, RECORDER_NAMESPACE, RECORDING_EVENTS, RECORDING_STOP } from './constants.js';
+import { RECORDING_TRACKING, PONG, RECORDER_NAMESPACE, RECORDING_EVENTS, RECORDING_STOP } from './constants.js';
 import { createMessage } from './utils/windowUtils.js';
 
 allowWindowMessaging(RECORDER_NAMESPACE);
@@ -28,6 +28,7 @@ function configurePort(recorderType) {
   onMessage(RECORDING_STOP, message => sendMessageToClient(RECORDING_STOP, message.data, manifest.version, recorderType));
   onMessage(RECORDING_EVENTS, message => sendMessageToClient(RECORDING_EVENTS, message.data, manifest.version, recorderType));
   onMessage(PONG, message => sendMessageToClient(PONG, message.data, manifest.version, recorderType));
+  onMessage(RECORDING_TRACKING, message => sendMessageToClient(RECORDING_TRACKING, message.data, manifest.version, recorderType));
 
   // From Loadster script to background
   function onBridgeMessage(event) {

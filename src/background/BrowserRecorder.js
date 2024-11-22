@@ -1,7 +1,7 @@
 import browser from 'webextension-polyfill';
 import { onMessage, sendMessage } from 'webext-bridge/background';
 import Recorder from './Recorder.js';
-import { NAVIGATE_URL, OPTIONS, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION } from '../constants.js';
+import { NAVIGATE_URL, OPTIONS, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION, RECORDING_TRACKING } from '../constants.js';
 import { generateId } from './utils.js';
 
 // eslint-disable-next-line no-undef
@@ -106,6 +106,7 @@ export default class BrowserRecorder extends Recorder {
 
       this.recording = true;
       this.updateWindowsRecordingStatus(tabId);
+      await sendMessage(RECORDING_TRACKING, { tabId, type: 'inject-content-script' }, this.channel);
     } catch (err) {
       console.error(err);
     }
@@ -125,6 +126,7 @@ export default class BrowserRecorder extends Recorder {
 
     if (this.tabIds.includes(tabId)) {
       if (isFirefox || frameType === 'outermost_frame') {
+        await sendMessage(RECORDING_TRACKING, { tabId, frameId, frameType, transitionType, type: 'navigation' }, this.channel);
         await this.injectForegroundScripts(tabId);
       }
       if (['typed'].includes(transitionType)) {
