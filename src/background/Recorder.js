@@ -1,5 +1,4 @@
 import browser from 'webextension-polyfill';
-import { onMessage, sendMessage } from 'webext-bridge/background';
 import { PING, PONG, RECORDING_STOP } from '../constants.js';
 
 function indicateRecording(count) {
@@ -17,6 +16,10 @@ function indicateRecording(count) {
   }
 }
 
+function sendMessage(type, data, port) {
+  port.postMessage({ type, data });
+}
+
 export default class Recorder {
   constructor(port, channel) {
     this.port = port;
@@ -24,22 +27,29 @@ export default class Recorder {
     this.tick = 0;
     this.channel = channel; // content-script@port.sender.tab.id (content.js tab id)
     this.recording = false;
+    this.recordingOptions = {};
     this.manifest_version = browser.runtime.getManifest().manifest_version;
 
-    onMessage(PING, () => {
-      this.blinkTitle();
-
-      sendMessage(PONG, { enabled: true }, channel);
-    });
-
-    onMessage(RECORDING_STOP, () => {
-      this.stopAndCleanup();
-      this.port.disconnect();
+    this.port.onMessage.addListener((message) => {
+      if (message.type === PING) {
+        this.blinkTitle();
+        sendMessage(PONG, { enabled: true }, port);
+      } else if (message.type === RECORDING_STOP) {
+        this.stopAndCleanup();
+        this.port.disconnect();
+      }
     });
 
     this.addTabListeners();
 
     port.onDisconnect.addListener(this.stopAndCleanup.bind(this));
+  }
+
+  async getStatus () {
+    return {
+      enabled: this.recording,
+      options: this.recordingOptions
+    };
   }
 
   onCreatedTab(tab) {
@@ -57,7 +67,7 @@ export default class Recorder {
 
     if (this.tabIds.length === 0) {
       console.log('Stop recording from the background', this.channel);
-      sendMessage(RECORDING_STOP, {}, this.channel);
+      sendMessage(RECORDING_STOP, {}, this.port);
     }
   }
 

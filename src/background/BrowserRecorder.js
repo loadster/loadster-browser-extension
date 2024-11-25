@@ -1,5 +1,4 @@
 import browser from 'webextension-polyfill';
-import { onMessage, sendMessage } from 'webext-bridge/background';
 import Recorder from './Recorder.js';
 import { NAVIGATE_URL, OPTIONS, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION, RECORDING_TRACKING } from '../constants.js';
 import { generateId } from './utils.js';
@@ -8,30 +7,58 @@ import { generateId } from './utils.js';
 const isFirefox = __BROWSER__ === 'firefox';
 
 export default class BrowserRecorder extends Recorder {
-  constructor(port, channel) {
-    super(port, channel);
+  constructor(contentScriptPort, channel) {
+    super(contentScriptPort, channel);
 
     this.recordingOptions = {};
     this.registeredScripts = [];
+    this.pagePort = null;
 
-    onMessage(OPTIONS, msg => Object.assign(this.recordingOptions, msg.data.value));
-    onMessage(NAVIGATE_URL, async message => {
-      this.recording = true;
+    contentScriptPort.onMessage.addListener(async (message) => {
+      if (message.type === OPTIONS) {
+        Object.assign(this.recordingOptions, message.data.value);
+      } else if (message.type === NAVIGATE_URL) {
+        this.recording = true;
 
-      await this.createFirstTab(message.data.value);
-      await this.uploadBrowserEvent({
-        action: 'navigate',
-        tabId: this.tabIds[0],
-        data: {
-          url: message.data.value
-        }
-      });
+        await this.createFirstTab(message.data.value);
+        await this.uploadBrowserEvent({
+          action: 'navigate',
+          tabId: this.tabIds[0],
+          data: {
+            url: message.data.value
+          }
+        });
+      }
     });
-
-    onMessage(USER_ACTION, msg => this.uploadBrowserEvent(msg.data));
 
     browser.webNavigation.onCommitted.addListener(this.navigationCommitted.bind(this));
     this.registerPageContentScripts().then(() => {});
+  }
+
+  setupPageContentPort (pagePort) {
+    this.pagePort = pagePort;
+
+    pagePort.onMessage.addListener(msg => {
+      console.log(msg);
+      if (msg.type === USER_ACTION) {
+        this.uploadBrowserEvent(msg.data);
+      }
+    });
+  }
+
+  sendMessageToLoadster(type, data, channel) {
+    console.log('>> app', type, data, channel);
+    this.port.postMessage({ type, data });
+  }
+
+  sendMessageToPage(type, data, channel) {
+    try {
+      console.log('>> page', type, data, channel, this.pagePort);
+      this.pagePort?.postMessage({ type, data });
+    } catch (err) {
+      // Attempting to use a disconnected port object
+      console.warn(err);
+    }
   }
 
   async registerPageContentScripts () {
@@ -106,14 +133,14 @@ export default class BrowserRecorder extends Recorder {
 
       this.recording = true;
       this.updateWindowsRecordingStatus(tabId);
-      await sendMessage(RECORDING_TRACKING, { tabId, type: 'inject-content-script' }, this.channel);
+      this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, type: 'inject-content-script' }, this.channel);
     } catch (err) {
       console.error(err);
     }
   }
 
-  async uploadBrowserEvent(event) {
-    await sendMessage(RECORDING_EVENTS, {
+  uploadBrowserEvent(event) {
+    this.sendMessageToLoadster(RECORDING_EVENTS, {
       http: {},
       browser: {
         [generateId(event.action)]: event
@@ -126,7 +153,7 @@ export default class BrowserRecorder extends Recorder {
 
     if (this.tabIds.includes(tabId)) {
       if (isFirefox || frameType === 'outermost_frame') {
-        await sendMessage(RECORDING_TRACKING, { tabId, frameId, frameType, transitionType, type: 'navigation' }, this.channel);
+        this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, frameId, frameType, transitionType, type: 'navigation' }, this.channel);
         await this.injectForegroundScripts(tabId);
       }
       if (['typed'].includes(transitionType)) {
@@ -136,7 +163,7 @@ export default class BrowserRecorder extends Recorder {
   }
 
   updateWindowsRecordingStatus(tabId) {
-    sendMessage(RECORDING_STATUS, {
+    this.sendMessageToPage(RECORDING_STATUS, {
       enabled: this.recording,
       options: this.recordingOptions
     }, `content-script@${tabId}`);

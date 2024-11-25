@@ -1,5 +1,4 @@
 import browser from 'webextension-polyfill';
-import { onMessage, sendMessage } from 'webext-bridge/background';
 import Recorder from './Recorder.js';
 import { NAVIGATE_URL, RECORDING_EVENTS } from '../constants.js';
 import { toBase64 } from './utils.js';
@@ -8,15 +7,17 @@ import { toBase64 } from './utils.js';
 const isFirefox = __BROWSER__ === 'firefox';
 
 export default class HttpRecorder extends Recorder {
-  constructor(port, channel) {
-    super(port, channel);
+  constructor(contentScriptPort, channel) {
+    super(contentScriptPort, channel);
 
     this.requests = {}; // Requests are stored here until they are uploaded
 
-    onMessage(NAVIGATE_URL, async message => {
-      this.recording = true;
+    contentScriptPort.onMessage.addListener(async (message) => {
+      if (message.type === NAVIGATE_URL) {
+        this.recording = true;
 
-      await this.createFirstTab(message.data.value);
+        await this.createFirstTab(message.data.value);
+      }
     });
 
     this.addWebRequestListeners();
@@ -157,12 +158,15 @@ export default class HttpRecorder extends Recorder {
     }
   };
 
-  async uploadRequest(request, id) {
+  uploadRequest(request, id) {
     if (this.tabIds.includes(request.tabId)) {
-      sendMessage(RECORDING_EVENTS, {
-        http: { [id]: request },
-        browser: {}
-      }, this.channel);
+      this.port.postMessage({
+        type: RECORDING_EVENTS,
+        data: {
+          http: { [id]: request },
+          browser: {}
+        }
+      });
     }
   }
 }

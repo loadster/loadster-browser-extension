@@ -1,13 +1,13 @@
 import browser from 'webextension-polyfill';
-import { sendMessage } from 'webext-bridge/background';
-import { RECORDER_TYPE, RECORDING_STATUS } from './constants.js';
+import { ENDPOINT_PAGE_CONNECT, RECORDER_TYPE, RECORDING_STATUS } from './constants.js';
 import BrowserRecorder from './background/BrowserRecorder.js';
 import HttpRecorder from './background/HttpRecorder.js';
+import { parseRecorderConfig } from './utils/messagingUtils.js';
 
 let activeRecorder = null;
 
 browser.runtime.onConnect.addListener(async (port) => {
-  const config = parseConfig(port.name);
+  const config = parseRecorderConfig(port.name);
 
   if ([RECORDER_TYPE.HTTP, RECORDER_TYPE.BROWSER].includes(config.recorderType)) {
     const channel = `content-script@${port.sender.tab.id}`;
@@ -21,11 +21,16 @@ browser.runtime.onConnect.addListener(async (port) => {
     }
   }
 
-  if (config.endpointName === 'popup') {
-    if (activeRecorder) {
-      console.log('Sending recording status to popup context');
-      sendMessage(RECORDING_STATUS, { enabled: activeRecorder.recording }, 'popup');
+  if (config.endpointName === ENDPOINT_PAGE_CONNECT) {
+    if (activeRecorder instanceof BrowserRecorder) {
+      activeRecorder.setupPageContentPort(port);
     }
+  }
+});
+
+browser.runtime.onMessage.addListener((message, sender) => {
+  if (message.type === RECORDING_STATUS) {
+    return activeRecorder?.getStatus();
   }
 });
 
@@ -47,12 +52,3 @@ browser.runtime.onInstalled.addListener(async () => {
     }
   }
 });
-
-function parseConfig(json) {
-  try {
-    return JSON.parse(json);
-  } catch (err) {
-    console.log(err);
-    return {};
-  }
-}

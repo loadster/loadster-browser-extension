@@ -1,5 +1,5 @@
-import { onMessage, sendMessage } from 'webext-bridge/popup';
 import { RECORDING_STATUS } from './constants.js';
+import browser from 'webextension-polyfill';
 
 function refreshUI(enabled = false) {
   const containerEl = document.getElementById('status-panel');
@@ -13,6 +13,8 @@ function refreshUI(enabled = false) {
   }
 }
 
-onMessage(RECORDING_STATUS, (message) => {
-  refreshUI(message.data.enabled);
+browser.runtime.sendMessage({ type: RECORDING_STATUS }).then((status) => {
+  refreshUI(status.enabled);
+}).catch((err) => {
+  console.warn(err);
 });
