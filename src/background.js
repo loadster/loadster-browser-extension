@@ -9,16 +9,10 @@ let activeRecorder = null;
 browser.runtime.onConnect.addListener(async (port) => {
   const config = parseRecorderConfig(port.name);
 
-  if ([RECORDER_TYPE.HTTP, RECORDER_TYPE.BROWSER].includes(config.recorderType)) {
-    const channel = `content-script@${port.sender.tab.id}`;
-
-    console.log('browser.runtime.onConnect', config);
-
-    if (RECORDER_TYPE.BROWSER === config.recorderType) {
-      activeRecorder = new BrowserRecorder(port, channel);
-    } else if (RECORDER_TYPE.HTTP === config.recorderType) {
-      activeRecorder = new HttpRecorder(port, channel);
-    }
+  if (RECORDER_TYPE.BROWSER === config.recorderType) {
+    activeRecorder = new BrowserRecorder(port);
+  } else if (RECORDER_TYPE.HTTP === config.recorderType) {
+    activeRecorder = new HttpRecorder(port);
   }
 
   if (config.endpointName === ENDPOINT_PAGE_CONNECT) {
@@ -29,8 +23,10 @@ browser.runtime.onConnect.addListener(async (port) => {
 });
 
 browser.runtime.onMessage.addListener((message, sender) => {
+  if (!activeRecorder || sender.id !== activeRecorder.port.sender.id) return;
+
   if (message.type === RECORDING_STATUS) {
-    return activeRecorder?.getStatus();
+    return activeRecorder.getStatus();
   }
 });
 

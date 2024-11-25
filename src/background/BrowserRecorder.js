@@ -7,8 +7,8 @@ import { generateId } from './utils.js';
 const isFirefox = __BROWSER__ === 'firefox';
 
 export default class BrowserRecorder extends Recorder {
-  constructor(contentScriptPort, channel) {
-    super(contentScriptPort, channel);
+  constructor(contentScriptPort) {
+    super(contentScriptPort);
 
     this.recordingOptions = {};
     this.registeredScripts = [];
@@ -39,21 +39,22 @@ export default class BrowserRecorder extends Recorder {
     this.pagePort = pagePort;
 
     pagePort.onMessage.addListener(msg => {
-      console.log(msg);
       if (msg.type === USER_ACTION) {
         this.uploadBrowserEvent(msg.data);
       }
     });
   }
 
-  sendMessageToLoadster(type, data, channel) {
-    console.log('>> app', type, data, channel);
-    this.port.postMessage({ type, data });
+  sendMessageToLoadster(type, data) {
+    try {
+      this.port.postMessage({ type, data });
+    } catch (err) {
+      console.warn(err);
+    }
   }
 
-  sendMessageToPage(type, data, channel) {
+  sendMessageToPage(type, data) {
     try {
-      console.log('>> page', type, data, channel, this.pagePort);
       this.pagePort?.postMessage({ type, data });
     } catch (err) {
       // Attempting to use a disconnected port object
@@ -132,8 +133,8 @@ export default class BrowserRecorder extends Recorder {
       }
 
       this.recording = true;
-      this.updateWindowsRecordingStatus(tabId);
-      this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, type: 'inject-content-script' }, this.channel);
+      this.updateWindowsRecordingStatus();
+      this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, type: 'inject-content-script' });
     } catch (err) {
       console.error(err);
     }
@@ -145,7 +146,7 @@ export default class BrowserRecorder extends Recorder {
       browser: {
         [generateId(event.action)]: event
       }
-    }, this.channel);
+    });
   }
 
   async navigationCommitted(details) {
@@ -153,7 +154,7 @@ export default class BrowserRecorder extends Recorder {
 
     if (this.tabIds.includes(tabId)) {
       if (isFirefox || frameType === 'outermost_frame') {
-        this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, frameId, frameType, transitionType, type: 'navigation' }, this.channel);
+        this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, frameId, frameType, transitionType, type: 'navigation' });
         await this.injectForegroundScripts(tabId);
       }
       if (['typed'].includes(transitionType)) {
@@ -162,10 +163,10 @@ export default class BrowserRecorder extends Recorder {
     }
   }
 
-  updateWindowsRecordingStatus(tabId) {
+  updateWindowsRecordingStatus() {
     this.sendMessageToPage(RECORDING_STATUS, {
       enabled: this.recording,
       options: this.recordingOptions
-    }, `content-script@${tabId}`);
+    });
   }
 }

@@ -59,7 +59,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
   const emitMessage = (msg) => {
     window.top.dispatchEvent(new CustomEvent(USER_ACTION, {
       'detail': createMessage({
-        action: msg.action, data: msg
+        action: msg.action,
+        data: msg
       })
     }));
   };

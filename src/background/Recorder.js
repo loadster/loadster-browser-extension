@@ -21,11 +21,10 @@ function sendMessage(type, data, port) {
 }
 
 export default class Recorder {
-  constructor(port, channel) {
+  constructor(port) {
     this.port = port;
     this.tabIds = [];
     this.tick = 0;
-    this.channel = channel; // content-script@port.sender.tab.id (content.js tab id)
     this.recording = false;
     this.recordingOptions = {};
     this.manifest_version = browser.runtime.getManifest().manifest_version;
@@ -66,7 +65,6 @@ export default class Recorder {
     }
 
     if (this.tabIds.length === 0) {
-      console.log('Stop recording from the background', this.channel);
       sendMessage(RECORDING_STOP, {}, this.port);
     }
   }

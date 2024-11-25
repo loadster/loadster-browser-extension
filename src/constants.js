@@ -13,3 +13,12 @@ export const RECORDER_TYPE = {
   HTTP: 'loadster-http-recorder',
   BROWSER: 'loadster-browser-recorder'
 };
+
+export const bridgeEvents = {
+  'CONNECT': 'loadster_connect_extension',
+  'CONNECTED': 'loadster_connected_extension',
+  'DISCONNECTED': 'loadster_disconnected_extension',
+  'SEND': 'loadster_post_message',
+  'STOP': 'loadster_stop_recording',
+  'READY': 'loadster_recorder_ready'
+};

@@ -1,15 +1,6 @@
 import browser from 'webextension-polyfill';
-import { RECORDING_TRACKING, PONG, RECORDING_EVENTS, RECORDING_STOP } from './constants.js';
+import { RECORDING_TRACKING, PONG, RECORDING_EVENTS, RECORDING_STOP, bridgeEvents } from './constants.js';
 import { createMessage } from './utils/windowUtils.js';
-
-const bridgeEvents = {
-  'CONNECT': 'loadster_connect_extension',
-  'CONNECTED': 'loadster_connected_extension',
-  'DISCONNECTED': 'loadster_disconnected_extension',
-  'SEND': 'loadster_post_message',
-  'STOP': 'loadster_stop_recording',
-  'READY': 'loadster_recorder_ready'
-};
 
 function sendMessageToClient(type, data, version, app) {
   window.dispatchEvent(new CustomEvent(type, {
@@ -19,7 +10,7 @@ function sendMessageToClient(type, data, version, app) {
 
 function configurePort(recorderType) {
   const manifest = browser.runtime.getManifest();
-  const port = browser.runtime.connect({ name: JSON.stringify({ recorderType }) }); // see service-worker.js => browser.runtime.onConnect
+  const port = browser.runtime.connect({ name: JSON.stringify({ recorderType }) }); // see background.js => browser.runtime.onConnect
 
   // No tabs open
   onMessage(RECORDING_STOP, message => sendMessageToClient(RECORDING_STOP, message.data, manifest.version, recorderType));
@@ -27,12 +18,12 @@ function configurePort(recorderType) {
   onMessage(PONG, message => sendMessageToClient(PONG, message.data, manifest.version, recorderType));
   onMessage(RECORDING_TRACKING, message => sendMessageToClient(RECORDING_TRACKING, message.data, manifest.version, recorderType));
 
-  function sendMessage (type, data, channel) {
+  function sendMessageToBackground (type, data) {
     port.postMessage({ type, data });
   }
 
   function onMessage(type, callback) {
-    port.onMessage.addListener(message => {
+    port.onMessage.addListener((message) => {
       if (message.type === type) {
         callback(message);
       }
@@ -41,11 +32,11 @@ function configurePort(recorderType) {
 
   // From Loadster script to background
   function onBridgeMessage(event) {
-    sendMessage(event.detail.type, event.detail, 'background');
+    sendMessageToBackground(event.detail.type, event.detail);
   }
 
   function onBridgeStop() {
-    sendMessage(RECORDING_STOP, {}, 'background');
+    sendMessageToBackground(RECORDING_STOP, {});
 
     clearListeners();
   }

@@ -7,8 +7,8 @@ import { toBase64 } from './utils.js';
 const isFirefox = __BROWSER__ === 'firefox';
 
 export default class HttpRecorder extends Recorder {
-  constructor(contentScriptPort, channel) {
-    super(contentScriptPort, channel);
+  constructor(contentScriptPort) {
+    super(contentScriptPort);
 
     this.requests = {}; // Requests are stored here until they are uploaded
 

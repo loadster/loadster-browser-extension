@@ -2,46 +2,35 @@ import { RECORDING_STATUS, USER_ACTION, ENDPOINT_PAGE_CONNECT } from './constant
 import { createMessage } from './utils/windowUtils.js';
 import browser from 'webextension-polyfill';
 
-console.log('contentTab.js');
-
 let port;
 
 function connect () {
   if (port) {
-    console.log('disconnect old port');
     window.removeEventListener(USER_ACTION, onUserAction); // clean up old connection
     window.removeEventListener('pageshow', onPageShow);
     port.disconnect();
   }
-  console.log('new connection', port, location.href);
 
   port = browser.runtime.connect({
     name: JSON.stringify({ endpointName: ENDPOINT_PAGE_CONNECT })
   });
-
-  port.onMessage.addListener(onPortMessage);
+  port.onMessage.addListener(forwardPortMessageToPage);
 
   window.addEventListener(USER_ACTION, onUserAction);
   window.addEventListener('pageshow', onPageShow);
 }
 
 function onUserAction (event) {
-  console.log('page>>contentTab:forward:USER_ACTION>>NEW_PORT');
   port.postMessage({ type: USER_ACTION, data: event.detail }); // to background
 }
 
-function onPortMessage (message) {
-  console.log('onPortMessage', message);
-
+function forwardPortMessageToPage (message) {
   if (message.type === RECORDING_STATUS) {
-    console.log('contentTab:forward:RECORDING_STATUS>>', message.data);
     window.dispatchEvent(new CustomEvent(RECORDING_STATUS, {
       'detail': createMessage(message.data)
     }));
   }
 }
-
-
 
 function onPageShow (event) {
   if (event.persisted) {
