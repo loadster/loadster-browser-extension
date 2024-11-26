@@ -25,5 +25,4 @@ If you have any questions about the extension or its licensing, please contact [
 ## Libraries
 
 * [@medv/finder](https://www.npmjs.com/package/@medv/finder) - The CSS Selector Generator
-* [webext-bridge](https://www.npmjs.com/package/webext-bridge) - Messaging in WebExtensions made super easy. Out of the box.
 * [webextension-polyfill](https://www.npmjs.com/package/webextension-polyfill) - WebExtension browser API Polyfill
