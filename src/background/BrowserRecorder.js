@@ -117,7 +117,7 @@ export default class BrowserRecorder extends Recorder {
     try {
       const { manifest_version } = browser.runtime.getManifest();
 
-      console.log('injectForegroundScripts', { tabId });
+      // console.log('injectForegroundScripts', { tabId });
 
       if (manifest_version === 3) {
         await browser.scripting.executeScript({
@@ -150,7 +150,7 @@ export default class BrowserRecorder extends Recorder {
   }
 
   async navigationCommitted(details) {
-    const { tabId, frameId, frameType, transitionType, ...data } = details;
+    const { tabId, frameId, frameType, transitionType, transitionQualifiers, ...data } = details;
 
     if (this.tabIds.includes(tabId)) {
       if (isFirefox || frameType === 'outermost_frame') {
@@ -158,6 +158,8 @@ export default class BrowserRecorder extends Recorder {
         await this.injectForegroundScripts(tabId);
       }
       if (['typed'].includes(transitionType)) {
+        await this.uploadBrowserEvent({ action: 'navigate', data });
+      } else if (['link'].includes(transitionType) && transitionQualifiers.includes('forward_back')) {
         await this.uploadBrowserEvent({ action: 'navigate', data });
       }
     }
