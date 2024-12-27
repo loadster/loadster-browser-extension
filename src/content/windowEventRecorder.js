@@ -358,6 +358,6 @@ if (!window.loadsterRecorderScriptsLoaded) {
   }
 
   events.forEach((type) => {
-    window.addEventListener(type, recordEvent, true);
+    window.addEventListener(type, recordEvent);
   });
 }
