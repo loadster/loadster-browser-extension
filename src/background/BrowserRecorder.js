@@ -68,7 +68,7 @@ export default class BrowserRecorder extends Recorder {
     if (manifest_version === 3) {
        await browser.scripting.registerContentScripts([{
           matches: ['*://*/*'],
-          excludeMatches: ['*://localhost/*', 'https://loadster.app/*', 'https://speedway.app/*'],
+          excludeMatches: ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*'],
           js: ['src/content/windowEventRecorder.js'],
           id: 'loadster-page-content-scripts',
           allFrames: true,
@@ -78,7 +78,7 @@ export default class BrowserRecorder extends Recorder {
     } else {
       const script = await browser.contentScripts.register({
         matches: ['*://*/*'],
-        excludeMatches: ['*://localhost/*', 'https://loadster.app/*', 'https://speedway.app/*'],
+        excludeMatches: ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*'],
         js: [{
           file: 'src/content/windowEventRecorder.js'
         }],
