@@ -8,8 +8,7 @@ Its purpose is to assist you with creating [Loadster](https://loadster.com) test
 activity (only when recording is enabled).
 
 It then collates the browser events into a test script that you can then edit and play back.
-Once you're satisfied with your script, launch a load test with hundreds or thousands
-of bots running your script simultaneously in Loadster, or use it for site monitoring in Speedway.
+Once you're satisfied with your script, use it in Loadster for load testing or site monitoring.
 
 To learn more about Loadster, check out [Loadster](https://loadster.com).
 
