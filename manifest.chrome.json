@@ -19,7 +19,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://localhost/*", "https://loadster.app/*", "https://speedway.app/*"],
+      "matches": [
+        "*://localhost/*",
+        "https://loadster.com/*",
+        "https://loadster.app/*",
+        "https://*.loadster.com/*",
+        "https://*.loadster.app/*"
+      ],
       "js": [
         "src/content.js",
         "src/popup.js"

@@ -59,8 +59,8 @@ export default class HttpRecorder extends Recorder {
   requestUpdated = async (info) => {
     const IGNORED_PREFIXES = [
       'http://localhost',
-      'https://loadster.app',
-      'https://speedway.app'
+      'https://loadster.com',
+      'https://loadster.app'
     ];
     if (Math.sign(info.tabId) >= 0) {
       try {
