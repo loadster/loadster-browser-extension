@@ -23,7 +23,7 @@ export function overrideEventListeners() {
   };
 
   Element.prototype.removeEventListener = function (type, listener, options) {
-    originalRemoveEventListener(type, listener, options);
+    originalRemoveEventListener.call(this, type, listener, options);
 
     if (!this._loadsterCapturedEventListeners) this._loadsterCapturedEventListeners = {};
     if (!this._loadsterCapturedEventListeners[type]) this._loadsterCapturedEventListeners[type] = [];
@@ -99,12 +99,23 @@ function getElementCSSHoverRule(hoverRules, targetElement) {
 
 export function setupCSSHoverEventListener(immediate = true) {
   const hoverRules = [];
+  const PERF_WARN_THRESHOLD_MS = 100;
+
+  function collectHoverRules() {
+    const start = performance.now();
+    const rules = getAllHoverRules();
+    const duration = performance.now() - start;
+    if (duration > PERF_WARN_THRESHOLD_MS) {
+      console.warn(`[Loadster] Slow operation: getAllHoverRules took ${duration.toFixed(1)}ms (found ${rules.length} rules)`);
+    }
+    return rules;
+  }
 
   if (immediate) {
-    hoverRules.push(...getAllHoverRules());
+    hoverRules.push(...collectHoverRules());
   } else {
     document.addEventListener('DOMContentLoaded', () => {
-      hoverRules.push(...getAllHoverRules());
+      hoverRules.push(...collectHoverRules());
     });
   }
 

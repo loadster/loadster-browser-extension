@@ -6,6 +6,21 @@ import { parseRecorderConfig } from './utils/messagingUtils.js';
 
 let activeRecorder = null;
 
+// Clean up any stale content script registrations from previous sessions.
+// This handles cases where the service worker was killed mid-recording or the browser
+// crashed without proper cleanup, leaving windowEventRecorder.js registered on all pages.
+(async () => {
+  if (browser.runtime.getManifest().manifest_version === 3) {
+    try {
+      await browser.scripting.unregisterContentScripts({
+        ids: ['loadster-page-content-scripts']
+      });
+    } catch (e) {
+      // Script wasn't registered, that's fine
+    }
+  }
+})();
+
 browser.runtime.onConnect.addListener(async (port) => {
   const config = parseRecorderConfig(port.name);
 

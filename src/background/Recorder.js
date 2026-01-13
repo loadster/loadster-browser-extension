@@ -17,7 +17,11 @@ function indicateRecording(count) {
 }
 
 function sendMessage(type, data, port) {
-  port.postMessage({ type, data });
+  try {
+    port.postMessage({ type, data });
+  } catch (err) {
+    console.warn('sendMessage failed:', err.message);
+  }
 }
 
 export default class Recorder {

@@ -2,19 +2,53 @@ import { finder } from '@medv/finder';
 import { RECORDING_STATUS, USER_ACTION } from '../constants.js';
 import { overrideEventListeners, setupCSSHoverEventListener, createMessage } from '../utils/windowUtils.js';
 
+const PERF_WARN_THRESHOLD_MS = 100;
+
 if (!window.loadsterRecorderScriptsLoaded) {
   window.loadsterRecorderScriptsLoaded = true;
 
-  let enabled = true;
+  let enabled = false;
+  let initialized = false;
+  let getElementWithCSSHoverRule = () => null;
+  let elementHasCSSHoverRule = () => false;
+
+  const events = ['click', 'dbclick', 'change', 'select', 'submit', 'mouseenter', 'mouseover'];
+
+  function warnIfSlow(label, startTime) {
+    const duration = performance.now() - startTime;
+
+    if (duration > PERF_WARN_THRESHOLD_MS) {
+      console.warn(`[Loadster] Slow operation: ${label} took ${duration.toFixed(1)}ms`);
+    }
+
+    return duration;
+  }
 
   window.addEventListener(RECORDING_STATUS, (event) => {
     enabled = event.detail.enabled;
+
+    // Defer heavy setup until recording is actually active for this tab.
+    // This avoids performance impact on pages that aren't being recorded.
+    if (enabled && !initialized) {
+      const initStart = performance.now();
+      const hoverHelpers = setupCSSHoverEventListener(false);
+
+      getElementWithCSSHoverRule = hoverHelpers.getElementWithCSSHoverRule;
+      elementHasCSSHoverRule = hoverHelpers.elementHasCSSHoverRule;
+
+      overrideEventListeners();
+
+      events.forEach((type) => {
+        window.addEventListener(type, recordEvent);
+      });
+
+      initialized = true;
+
+      warnIfSlow('recorder initialization', initStart);
+    }
+
     updateFilters(event.detail.options);
   });
-
-  const { getElementWithCSSHoverRule, elementHasCSSHoverRule } = setupCSSHoverEventListener(false);
-
-  overrideEventListeners();
 
   const recordingOptions = {
     recordHoverEvents: 'none', // 'none' | 'auto' | 'all'
@@ -23,8 +57,6 @@ if (!window.loadsterRecorderScriptsLoaded) {
   const filters = {
     idName: [], className: [], tagName: [], attr: [],
   };
-
-  const events = ['click', 'dbclick', 'change', 'select', 'submit', 'mouseenter', 'mouseover'];
 
   function isValidRegex(str) {
     let isValid = true;
@@ -127,11 +159,21 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
       addTargetAttributes(element, attrs);
 
+      const cssStart = performance.now();
+      const cssSelectors = getCssSelectors(element, attrs.frameSelector);
+
+      warnIfSlow(`getCssSelectors (${e.type})`, cssStart);
+
+      const textStart = performance.now();
+      const textSelector = getTextSelector(element, attrs.frameSelector);
+
+      warnIfSlow(`getTextSelector (${e.type})`, textStart);
+
       const msg = {
         'timestamp': Date.now(),
         selectors: {
-          ...getCssSelectors(element, attrs.frameSelector),
-          textSelector: getTextSelector(element, attrs.frameSelector)
+          ...cssSelectors,
+          textSelector
         },
         'value': element.value,
         'tagName': element.tagName,
@@ -270,10 +312,20 @@ if (!window.loadsterRecorderScriptsLoaded) {
     const textContent = el.textContent.trim();
     let textSelector = '';
 
+    // Check uniqueness, stopping as soon as we find a second match
     if (!el.children.length && textContent) {
-      const isUnique = Array.from(document.body.querySelectorAll('*')).filter(el => el.textContent.trim() === textContent).length === 1;
+      const allElements = document.body.getElementsByTagName('*');
+      let matchCount = 0;
 
-      if (isUnique) {
+      for (let i = 0; i < allElements.length && matchCount < 2; i++) {
+        const element = allElements[i];
+
+        if (!element.children.length && element.textContent.trim() === textContent) {
+          matchCount++;
+        }
+      }
+
+      if (matchCount === 1) {
         textSelector = `${frameSelector} text=${textContent}`.trim();
       }
     }
@@ -357,7 +409,4 @@ if (!window.loadsterRecorderScriptsLoaded) {
     return originalElement;
   }
 
-  events.forEach((type) => {
-    window.addEventListener(type, recordEvent);
-  });
 }
