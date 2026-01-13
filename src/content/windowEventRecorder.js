@@ -5,16 +5,35 @@ import { overrideEventListeners, setupCSSHoverEventListener, createMessage } fro
 if (!window.loadsterRecorderScriptsLoaded) {
   window.loadsterRecorderScriptsLoaded = true;
 
-  let enabled = true;
+  let enabled = false;
+  let initialized = false;
+  let getElementWithCSSHoverRule = () => null;
+  let elementHasCSSHoverRule = () => false;
+
+  const events = ['click', 'dbclick', 'change', 'select', 'submit', 'mouseenter', 'mouseover'];
 
   window.addEventListener(RECORDING_STATUS, (event) => {
     enabled = event.detail.enabled;
+
+    // Defer heavy setup until recording is actually active for this tab.
+    // This avoids performance impact on pages that aren't being recorded.
+    if (enabled && !initialized) {
+      const hoverHelpers = setupCSSHoverEventListener(false);
+
+      getElementWithCSSHoverRule = hoverHelpers.getElementWithCSSHoverRule;
+      elementHasCSSHoverRule = hoverHelpers.elementHasCSSHoverRule;
+
+      overrideEventListeners();
+
+      events.forEach((type) => {
+        window.addEventListener(type, recordEvent);
+      });
+
+      initialized = true;
+    }
+
     updateFilters(event.detail.options);
   });
-
-  const { getElementWithCSSHoverRule, elementHasCSSHoverRule } = setupCSSHoverEventListener(false);
-
-  overrideEventListeners();
 
   const recordingOptions = {
     recordHoverEvents: 'none', // 'none' | 'auto' | 'all'
@@ -23,8 +42,6 @@ if (!window.loadsterRecorderScriptsLoaded) {
   const filters = {
     idName: [], className: [], tagName: [], attr: [],
   };
-
-  const events = ['click', 'dbclick', 'change', 'select', 'submit', 'mouseenter', 'mouseover'];
 
   function isValidRegex(str) {
     let isValid = true;
@@ -357,7 +374,4 @@ if (!window.loadsterRecorderScriptsLoaded) {
     return originalElement;
   }
 
-  events.forEach((type) => {
-    window.addEventListener(type, recordEvent);
-  });
 }
