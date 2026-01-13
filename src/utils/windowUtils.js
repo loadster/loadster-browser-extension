@@ -23,7 +23,7 @@ export function overrideEventListeners() {
   };
 
   Element.prototype.removeEventListener = function (type, listener, options) {
-    originalRemoveEventListener(type, listener, options);
+    originalRemoveEventListener.call(this, type, listener, options);
 
     if (!this._loadsterCapturedEventListeners) this._loadsterCapturedEventListeners = {};
     if (!this._loadsterCapturedEventListeners[type]) this._loadsterCapturedEventListeners[type] = [];
