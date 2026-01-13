@@ -66,15 +66,24 @@ export default class BrowserRecorder extends Recorder {
     const { manifest_version } = browser.runtime.getManifest();
 
     if (manifest_version === 3) {
-       await browser.scripting.registerContentScripts([{
-          matches: ['*://*/*'],
-          excludeMatches: ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*'],
-          js: ['src/content/windowEventRecorder.js'],
-          id: 'loadster-page-content-scripts',
-          allFrames: true,
-          runAt: 'document_start',
-          world: 'MAIN',
-        }]);
+      // Unregister first to avoid "Duplicate script ID" error
+      try {
+        await browser.scripting.unregisterContentScripts({
+          ids: ['loadster-page-content-scripts']
+        });
+      } catch (e) {
+        // Script wasn't registered, that's fine
+      }
+
+      await browser.scripting.registerContentScripts([{
+        matches: ['*://*/*'],
+        excludeMatches: ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*'],
+        js: ['src/content/windowEventRecorder.js'],
+        id: 'loadster-page-content-scripts',
+        allFrames: true,
+        runAt: 'document_start',
+        world: 'MAIN',
+      }]);
     } else {
       const script = await browser.contentScripts.register({
         matches: ['*://*/*'],
