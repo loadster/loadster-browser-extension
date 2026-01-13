@@ -287,10 +287,20 @@ if (!window.loadsterRecorderScriptsLoaded) {
     const textContent = el.textContent.trim();
     let textSelector = '';
 
+    // Check uniqueness, stopping as soon as we find a second match
     if (!el.children.length && textContent) {
-      const isUnique = Array.from(document.body.querySelectorAll('*')).filter(el => el.textContent.trim() === textContent).length === 1;
+      const allElements = document.body.getElementsByTagName('*');
+      let matchCount = 0;
 
-      if (isUnique) {
+      for (let i = 0; i < allElements.length && matchCount < 2; i++) {
+        const element = allElements[i];
+
+        if (!element.children.length && element.textContent.trim() === textContent) {
+          matchCount++;
+        }
+      }
+
+      if (matchCount === 1) {
         textSelector = `${frameSelector} text=${textContent}`.trim();
       }
     }
