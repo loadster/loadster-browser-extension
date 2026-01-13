@@ -2,6 +2,8 @@ import { finder } from '@medv/finder';
 import { RECORDING_STATUS, USER_ACTION } from '../constants.js';
 import { overrideEventListeners, setupCSSHoverEventListener, createMessage } from '../utils/windowUtils.js';
 
+const PERF_WARN_THRESHOLD_MS = 100;
+
 if (!window.loadsterRecorderScriptsLoaded) {
   window.loadsterRecorderScriptsLoaded = true;
 
@@ -12,12 +14,23 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
   const events = ['click', 'dbclick', 'change', 'select', 'submit', 'mouseenter', 'mouseover'];
 
+  function warnIfSlow(label, startTime) {
+    const duration = performance.now() - startTime;
+
+    if (duration > PERF_WARN_THRESHOLD_MS) {
+      console.warn(`[Loadster] Slow operation: ${label} took ${duration.toFixed(1)}ms`);
+    }
+
+    return duration;
+  }
+
   window.addEventListener(RECORDING_STATUS, (event) => {
     enabled = event.detail.enabled;
 
     // Defer heavy setup until recording is actually active for this tab.
     // This avoids performance impact on pages that aren't being recorded.
     if (enabled && !initialized) {
+      const initStart = performance.now();
       const hoverHelpers = setupCSSHoverEventListener(false);
 
       getElementWithCSSHoverRule = hoverHelpers.getElementWithCSSHoverRule;
@@ -30,6 +43,8 @@ if (!window.loadsterRecorderScriptsLoaded) {
       });
 
       initialized = true;
+
+      warnIfSlow('recorder initialization', initStart);
     }
 
     updateFilters(event.detail.options);
@@ -144,11 +159,21 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
       addTargetAttributes(element, attrs);
 
+      const cssStart = performance.now();
+      const cssSelectors = getCssSelectors(element, attrs.frameSelector);
+
+      warnIfSlow(`getCssSelectors (${e.type})`, cssStart);
+
+      const textStart = performance.now();
+      const textSelector = getTextSelector(element, attrs.frameSelector);
+
+      warnIfSlow(`getTextSelector (${e.type})`, textStart);
+
       const msg = {
         'timestamp': Date.now(),
         selectors: {
-          ...getCssSelectors(element, attrs.frameSelector),
-          textSelector: getTextSelector(element, attrs.frameSelector)
+          ...cssSelectors,
+          textSelector
         },
         'value': element.value,
         'tagName': element.tagName,
