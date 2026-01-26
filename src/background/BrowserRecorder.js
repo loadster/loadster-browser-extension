@@ -1,6 +1,6 @@
 import browser from 'webextension-polyfill';
 import Recorder from './Recorder.js';
-import { NAVIGATE_URL, OPTIONS, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION, RECORDING_TRACKING } from '../constants.js';
+import { NAVIGATE_URL, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION, RECORDING_TRACKING } from '../constants.js';
 import { generateId } from './utils.js';
 
 // eslint-disable-next-line no-undef
@@ -10,14 +10,11 @@ export default class BrowserRecorder extends Recorder {
   constructor(contentScriptPort) {
     super(contentScriptPort);
 
-    this.recordingOptions = {};
     this.registeredScripts = [];
     this.pagePort = null;
 
     contentScriptPort.onMessage.addListener(async (message) => {
-      if (message.type === OPTIONS) {
-        Object.assign(this.recordingOptions, message.data.value);
-      } else if (message.type === NAVIGATE_URL) {
+      if (message.type === NAVIGATE_URL) {
         this.recording = true;
 
         await this.createFirstTab(message.data.value);
@@ -31,7 +28,8 @@ export default class BrowserRecorder extends Recorder {
       }
     });
 
-    browser.webNavigation.onCommitted.addListener(this.navigationCommitted.bind(this));
+    this.boundNavigationCommitted = this.navigationCommitted.bind(this);
+    browser.webNavigation.onCommitted.addListener(this.boundNavigationCommitted);
     this.registerPageContentScripts().then(() => {});
   }
 
@@ -103,7 +101,7 @@ export default class BrowserRecorder extends Recorder {
   stopAndCleanup() {
     super.stopAndCleanup();
 
-    browser.webNavigation.onCommitted.removeListener(this.navigationCommitted);
+    browser.webNavigation.onCommitted.removeListener(this.boundNavigationCommitted);
 
     this.tabIds.forEach(tabId => this.updateWindowsRecordingStatus(tabId));
 

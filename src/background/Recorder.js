@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import { PING, PONG, RECORDING_STOP } from '../constants.js';
+import { PING, PONG, RECORDING_STOP, OPTIONS } from '../constants.js';
 
 function indicateRecording(count) {
   const iconA = String.fromCodePoint(0x25CF);
@@ -40,6 +40,8 @@ export default class Recorder {
       } else if (message.type === RECORDING_STOP) {
         this.stopAndCleanup();
         this.port.disconnect();
+      } else if (message.type === OPTIONS) {
+        Object.assign(this.recordingOptions, message.data.value);
       }
     });
 
@@ -93,9 +95,23 @@ export default class Recorder {
   }
 
   async createFirstTab(url) {
-    const tab = await browser.tabs.create({ url, active: true });
+    if (this.recordingOptions.incognito) {
+      const isAllowed = await browser.extension.isAllowedIncognitoAccess();
 
-    this.tabIds.push(tab.id);
+      if (isAllowed) {
+        const window = await browser.windows.create({ url, incognito: true });
+        const tabs = window.tabs || await browser.tabs.query({ windowId: window.id });
+
+        this.tabIds.push(tabs[0].id);
+      } else {
+        // Extension is not allowed in incognito mode. Starting in normal mode instead.
+        const tab = await browser.tabs.create({ url, active: true });
+        this.tabIds.push(tab.id);
+      }
+    } else {
+      const tab = await browser.tabs.create({ url, active: true });
+      this.tabIds.push(tab.id);
+    }
   }
 
   blinkTitle() {
