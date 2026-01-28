@@ -18,6 +18,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: npm install --no-save @rollup/rollup-linux-x64-gnu
       - run: npm run build
       - name: Get version
         id: version
