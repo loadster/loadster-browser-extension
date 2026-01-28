@@ -1,9 +1,6 @@
 name: Build
 
 on:
-  push:
-    branches:
-      - '**'
   pull_request:
     branches:
       - '**'
@@ -25,10 +22,10 @@ jobs:
         run: echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
       - name: Zip Chrome extension
         working-directory: dist/chrome
-        run: zip -r "../../loadster-extension-${{ steps.version.outputs.version }}-chrome.zip" . -x '.*' '*.map'
+        run: zip -r "../../loadster-extension-${{ steps.version.outputs.version }}-chrome.zip" * -x '.*' '*.map'
       - name: Zip Firefox extension
         working-directory: dist/firefox
-        run: zip -r "../../loadster-extension-${{ steps.version.outputs.version }}-firefox.zip" . -x '.*' '*.map'
+        run: zip -r "../../loadster-extension-${{ steps.version.outputs.version }}-firefox.zip" * -x '.*' '*.map'
       - name: Upload Chrome extension
         uses: actions/upload-artifact@v4
         with:
