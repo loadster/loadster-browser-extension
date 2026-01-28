@@ -32,11 +32,14 @@ export default class Recorder {
     this.recording = false;
     this.recordingOptions = {};
     this.manifest_version = browser.runtime.getManifest().manifest_version;
+    this.permissions = {};
+
+    this.checkPermissions().then(permissions => Object.assign(this.permissions, permissions));
 
     this.port.onMessage.addListener((message) => {
       if (message.type === PING) {
         this.blinkTitle();
-        sendMessage(PONG, { enabled: true }, port);
+        sendMessage(PONG, { enabled: true, permissions: this.permissions }, port);
       } else if (message.type === RECORDING_STOP) {
         this.stopAndCleanup();
         this.port.disconnect();
@@ -48,6 +51,14 @@ export default class Recorder {
     this.addTabListeners();
 
     port.onDisconnect.addListener(this.stopAndCleanup.bind(this));
+  }
+
+  async checkPermissions() {
+    const incognito = await browser.extension.isAllowedIncognitoAccess();
+
+    return {
+      incognito: incognito
+    };
   }
 
   async getStatus () {
