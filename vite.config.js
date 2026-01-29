@@ -28,7 +28,7 @@ export default defineConfig({
         if (target === 'firefox') {
           manifest.browser_specific_settings = {
             "gecko": {
-              "id": "loadster-recorder-extension@loadster-recorder-extension"
+              "id": "{f03c369b-ec55-4eac-97cd-79f775e60320}"
             }
           };
         }
