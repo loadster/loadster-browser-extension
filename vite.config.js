@@ -18,13 +18,22 @@ export default defineConfig({
         // Use `readJsonFile` instead of import/require to avoid caching during rebuild.
         const pkg = readJsonFile('package.json');
         const template = readJsonFile(target === 'chrome' ? 'manifest.chrome.json' : 'manifest.firefox.json');
-
-        return {
+        const manifest = {
           ...template,
           version: pkg.version,
           name: pkg.name,
           description: pkg.description,
         };
+
+        if (target === 'firefox') {
+          manifest.browser_specific_settings = {
+            "gecko": {
+              "id": "{f03c369b-ec55-4eac-97cd-79f775e60320}"
+            }
+          };
+        }
+
+        return manifest;
       },
       additionalInputs: [
         'src/contentTab.js',

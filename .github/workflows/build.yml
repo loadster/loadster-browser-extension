@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save @rollup/rollup-linux-x64-gnu
+      - run: npm run build
+      - name: Get version
+        id: version
+        run: echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
+      - name: Clean build artifacts
+        run: find dist -name '.*' -o -name '*.map' | xargs rm -f
+      - name: Upload Chrome extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: loadster-extension-${{ steps.version.outputs.version }}-chrome
+          path: dist/chrome/*
+          retention-days: 7
+      - name: Upload Firefox extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: loadster-extension-${{ steps.version.outputs.version }}-firefox
+          path: dist/firefox/*
+          retention-days: 7
