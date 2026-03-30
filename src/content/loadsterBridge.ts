@@ -1,6 +1,20 @@
+/**
+ *
+ * Content script injected into the Loadster dashboard.
+ *
+ * Acts as a message bridge between the Loadster dashboard and the browser
+ * extension's background script.
+ * TODO summarize what events are sent and received
+ */
+
 import browser from 'webextension-polyfill';
-import { RECORDING_TRACKING, PONG, RECORDING_EVENTS, RECORDING_STOP, bridgeEvents } from './constants.js';
-import { createMessage } from './utils/windowUtils.js';
+import { createMessage } from '../utils/messagingUtils.js';
+import { RecorderMessageType, BridgeEvent, type LoadsterPortMessage } from '../../index';
+
+const { RECORDING_EVENTS, RECORDING_STOP, RECORDING_TRACKING } = RecorderMessageType;
+const { PONG } = BridgeEvent;
+
+console.log('loadsterBridge.js injected');
 
 function sendMessageToClient(type, data, version, app) {
   window.dispatchEvent(new CustomEvent(type, {
@@ -23,7 +37,7 @@ function configurePort(recorderType) {
   }
 
   function onMessage(type, callback) {
-    port.onMessage.addListener((message) => {
+    port.onMessage.addListener((message: LoadsterPortMessage) => {
       if (message.type === type) {
         callback(message);
       }
@@ -42,19 +56,20 @@ function configurePort(recorderType) {
   }
 
   function clearListeners() {
-    window.removeEventListener(bridgeEvents.STOP, onBridgeStop);
-    window.removeEventListener(bridgeEvents.SEND, onBridgeMessage);
+    window.removeEventListener(BridgeEvent.STOP, onBridgeStop);
+    window.removeEventListener(BridgeEvent.SEND, onBridgeMessage);
   }
 
-  window.addEventListener(bridgeEvents.STOP, onBridgeStop);
-  window.addEventListener(bridgeEvents.SEND, onBridgeMessage);
+  window.addEventListener(BridgeEvent.STOP, onBridgeStop);
+  window.addEventListener(BridgeEvent.SEND, onBridgeMessage);
 
-  window.dispatchEvent(new CustomEvent(bridgeEvents.CONNECTED, { 'detail': createMessage({ version: manifest.version }) }));
+  console.log('configure port', port);
 
-  port.onDisconnect.addListener(() => window.dispatchEvent(new CustomEvent(bridgeEvents.DISCONNECTED)));
+  window.dispatchEvent(new CustomEvent(BridgeEvent.CONNECTED, { 'detail': createMessage({ version: manifest.version }) }));
+
+  port.onDisconnect.addListener(() => window.dispatchEvent(new CustomEvent(BridgeEvent.DISCONNECTED)));
 }
 
-window.addEventListener(bridgeEvents.CONNECT, (event) => configurePort(event.detail.name));
+window.addEventListener(BridgeEvent.CONNECT, (event: any) => configurePort(event.detail.name));
 
-window.dispatchEvent(new CustomEvent(bridgeEvents.READY));
-
+window.dispatchEvent(new CustomEvent(BridgeEvent.READY));

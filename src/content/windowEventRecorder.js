@@ -1,7 +1,8 @@
 import { finder } from '@medv/finder';
-import { RECORDING_STATUS, USER_ACTION } from '../constants.js';
-import { overrideEventListeners, setupCSSHoverEventListener, createMessage } from '../utils/windowUtils.js';
-
+import { RecorderMessageType } from '../../index.ts';
+import { overrideEventListeners, setupCSSHoverEventListener } from '../utils/windowUtils.js';
+import { createMessage } from '../utils/messagingUtils.js';
+const { RECORDING_STATUS, USER_ACTION } = RecorderMessageType;
 const PERF_WARN_THRESHOLD_MS = 100;
 
 if (!window.loadsterRecorderScriptsLoaded) {
@@ -77,7 +78,7 @@ if (!window.loadsterRecorderScriptsLoaded) {
 
     if (selectorFilters && selectorFilters.length) {
       selectorFilters.forEach(f => {
-        if (filters.hasOwnProperty(f.key) && f.value && f.value.trim() && isValidRegex(f.value)) {
+        if (Object.prototype.hasOwnProperty.call(filters, f.key) && f.value && f.value.trim() && isValidRegex(f.value)) {
           const regexp = new RegExp(f.value);
 
           if (!filters[f.key].find(r => String(r) === String(regexp))) {

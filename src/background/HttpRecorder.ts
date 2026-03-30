@@ -1,16 +1,19 @@
-import browser from 'webextension-polyfill';
-import Recorder from './Recorder.js';
-import { NAVIGATE_URL, RECORDING_EVENTS } from '../constants.js';
+import browser, { type WebRequest } from 'webextension-polyfill';
+import Recorder from './Recorder';
 import { toBase64 } from './utils.js';
+import { RecorderMessageType } from '../../index';
+
+const { NAVIGATE_URL, RECORDING_EVENTS } = RecorderMessageType;
+
 
 // eslint-disable-next-line no-undef
 const isFirefox = __BROWSER__ === 'firefox';
 
 export default class HttpRecorder extends Recorder {
+  requests: Record<string, any> = {};  // Requests are stored here until they are uploaded
+
   constructor(contentScriptPort) {
     super(contentScriptPort);
-
-    this.requests = {}; // Requests are stored here until they are uploaded
 
     contentScriptPort.onMessage.addListener(async (message) => {
       if (message.type === NAVIGATE_URL) {
@@ -24,24 +27,32 @@ export default class HttpRecorder extends Recorder {
   }
 
   addWebRequestListeners() {
-    const filter = {
+    const filter: WebRequest.RequestFilter = {
       urls: ['*://*/*'],
       types: ['main_frame', 'sub_frame', 'stylesheet', 'script', 'image', 'object', 'xmlhttprequest', 'other']
     };
-    const reqHeaders = [...(isFirefox ? [] : ['extraHeaders']), 'requestHeaders'];
+    const reqHeaders = [...(isFirefox ? [] : ['extraHeaders']), 'requestHeaders'] as unknown as WebRequest.OnSendHeadersOptions;
 
+    // @ts-ignore
     browser.webRequest.onBeforeRequest.addListener(this.requestUpdated, filter, ['requestBody']);
+    // @ts-ignore
     browser.webRequest.onBeforeSendHeaders.addListener(this.requestUpdated, filter, reqHeaders);
+    // @ts-ignore
     browser.webRequest.onSendHeaders.addListener(this.requestUpdated, filter, reqHeaders);
+    // @ts-ignore
     browser.webRequest.onHeadersReceived.addListener(this.headersReceived, filter, ['responseHeaders']);
     browser.webRequest.onResponseStarted.addListener(this.requestUpdated, filter, ['responseHeaders']);
     browser.webRequest.onCompleted.addListener(this.finishRequest, filter, ['responseHeaders']);
   }
 
   removeWebRequestListeners = () => {
+    // @ts-ignore
     browser.webRequest.onBeforeRequest.removeListener(this.requestUpdated);
+    // @ts-ignore
     browser.webRequest.onBeforeSendHeaders.removeListener(this.requestUpdated);
+    // @ts-ignore
     browser.webRequest.onSendHeaders.removeListener(this.requestUpdated);
+    // @ts-ignore
     browser.webRequest.onHeadersReceived.removeListener(this.headersReceived);
     browser.webRequest.onResponseStarted.removeListener(this.requestUpdated);
     browser.webRequest.onCompleted.removeListener(this.finishRequest);
@@ -121,7 +132,7 @@ export default class HttpRecorder extends Recorder {
     const request = this.requests[info.requestId];
 
     if (request) {
-      const redirected = {};
+      const redirected: { [key: string]: any; } = {};
 
       for (let prop in request) {
         if (Object.prototype.hasOwnProperty.call(request, prop)) {
@@ -159,7 +170,7 @@ export default class HttpRecorder extends Recorder {
   };
 
   uploadRequest(request, id) {
-    if (this.tabIds.includes(request.tabId)) {
+    if (this.tabIds.has(request.tabId)) {
       this.port.postMessage({
         type: RECORDING_EVENTS,
         data: {

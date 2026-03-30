@@ -48,17 +48,6 @@ export function overrideEventListeners() {
   };
 }
 
-export function createMessage(msg) {
-  // Firefox's security issue
-  // eslint-disable-next-line no-undef
-  if (__BROWSER__ === 'firefox' && typeof cloneInto === 'function') {
-    // eslint-disable-next-line no-undef
-    return cloneInto(msg, window, { 'cloneFunctions': true });
-  } else {
-    return msg;
-  }
-}
-
 // Remove the :hover part of the selector to match the element itself
 function getBaseSelector(rule) {
   return rule.selectorText.replace(':hover', '').trim();
