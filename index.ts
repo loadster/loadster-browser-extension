@@ -35,15 +35,22 @@ export interface RecordingOptions {
 export interface BrowserRecordingOptions extends RecordingOptions {
   recordHoverEvents?: boolean;
   recordClickEvents?: boolean;
+  selectorFilters: {
+    key: string;
+    value: string;
+  }[];
 }
 
-export interface PlaywrightRecordingOptions extends RecordingOptions {}
+export interface HttpRecordingOptions extends RecordingOptions {
+}
 
-export type LoadsterRecordingOptions = RecordingOptions;
+export interface PlaywrightRecordingOptions extends RecordingOptions {
+}
 
 export type LoadsterRecorderStatus = {
   enabled: boolean;
   options: RecordingOptions;
+  permissions: Record<string, boolean>;
 }
 
 export type LoadsterPortMessage = {
@@ -52,4 +59,80 @@ export type LoadsterPortMessage = {
     detail?: any,
     value?: any,
   }
+}
+
+export interface BrowserEvent {
+  action: string;
+  data: {
+    timestamp: number;
+
+    url?: string;
+    transitionType?: string;
+    tagName?: string;
+    selectors?: Record<string, string | string[]>;
+    value?: string;
+    attrs?: Record<string, string>;
+    [key: string]: unknown;
+  };
+  tabId: number;
+}
+
+export interface BrowserRecordingEventsData {
+  browser: Record<string, BrowserEvent>;
+}
+
+export interface PlaywrightRecordingEventsData {
+  playwright: { code: string };
+}
+
+export interface ProtocolRequest {
+  url: string;
+  method: string;
+  statusCode: number;
+  type: string;
+
+  [key: string]: unknown;
+}
+
+export interface HttpRecordingEventsData {
+  http: Record<string, ProtocolRequest>;
+}
+
+export type RecordingEventsDataMap = {
+  [RecorderType.BROWSER]: BrowserRecordingEventsData;
+  [RecorderType.PLAYWRIGHT]: PlaywrightRecordingEventsData;
+  [RecorderType.HTTP]: HttpRecordingEventsData;
+};
+
+export type RecordingEventsData = BrowserRecordingEventsData | PlaywrightRecordingEventsData | HttpRecordingEventsData;
+
+export interface ExtensionPermissions {
+  incognito: boolean;
+
+  [key: string]: boolean;
+}
+
+export interface PongData {
+  enabled: boolean;
+  permissions: ExtensionPermissions;
+}
+
+export interface BridgeMessage<T = unknown> {
+  type: string;
+  app: RecorderType;
+  version: string;
+  data: T;
+}
+
+export type PongMessage = BridgeMessage<PongData> & { type: BridgeEvent.PONG };
+export type RecordingEventsMessage = BridgeMessage<RecordingEventsData> & { type: RecorderMessageType.RECORDING_EVENTS };
+export type RecordingStopMessage = BridgeMessage & { type: RecorderMessageType.RECORDING_STOP };
+export type RecordingTrackingMessage = BridgeMessage<RecordingTrackingData> & { type: RecorderMessageType.RECORDING_TRACKING };
+
+export interface RecordingTrackingData {
+  tabId: number;
+  type: 'navigation' | 'inject-content-script';
+  frameId?: number;
+  frameType?: string;
+  transitionType?: string;
 }

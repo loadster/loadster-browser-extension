@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import { RecorderMessageType, type LoadsterPortMessage } from '../../index';
+import { RecorderMessageType, type LoadsterPortMessage, RecordingTrackingData } from '../../index';
 import Recorder from './Recorder';
 import RecorderController from './playwright/RecorderController';
 import type { ActionInContext } from './playwright/recorderTypes';
@@ -112,7 +112,7 @@ export default class PlaywrightRecorder extends Recorder {
     if (this.tabIds.has(tabId) && frameType === 'outermost_frame') {
       this.port.postMessage({
         type: RECORDING_TRACKING,
-        data: { tabId, frameId, frameType, transitionType, type: 'navigation' }
+        data: { tabId, frameId, frameType, transitionType, type: 'navigation' } as RecordingTrackingData
       });
     }
   }

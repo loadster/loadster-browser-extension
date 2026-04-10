@@ -1,7 +1,7 @@
 import browser from 'webextension-polyfill';
 import Recorder from './Recorder';
 import { generateId } from './utils.js';
-import { type LoadsterPortMessage, RecorderMessageType } from '../../index';
+import { type LoadsterPortMessage, RecorderMessageType, RecordingTrackingData } from '../../index';
 import { parseRecorderConfig } from '../utils/messagingUtils';
 
 const { ENDPOINT_PAGE_CONNECT, NAVIGATE_URL, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION, RECORDING_TRACKING } = RecorderMessageType;
@@ -173,7 +173,7 @@ export default class BrowserRecorder extends Recorder {
 
       this.recording = true;
       this.updateWindowsRecordingStatus();
-      this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, type: 'inject-content-script' });
+      this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, type: 'inject-content-script' } as RecordingTrackingData);
     } catch (err) {
       console.error(err);
     }
@@ -193,7 +193,7 @@ export default class BrowserRecorder extends Recorder {
 
     if (this.tabIds.has(tabId)) {
       if (isFirefox || frameType === 'outermost_frame') {
-        this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, frameId, frameType, transitionType, type: 'navigation' });
+        this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, frameId, frameType, transitionType, type: 'navigation' } as RecordingTrackingData);
         await this.injectForegroundScripts(tabId);
       }
       if (['typed'].includes(transitionType)) {

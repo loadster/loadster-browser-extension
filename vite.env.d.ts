@@ -1,9 +1,11 @@
 /// <reference types="vite/client" />
 
-declare const __BROWSER__: string;
-
 declare global {
+  const __BROWSER__: string;
+
   interface Window {
     loadsterOriginalTitle?: string;
   }
 }
+
+export {};

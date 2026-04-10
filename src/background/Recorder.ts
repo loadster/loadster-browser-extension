@@ -74,7 +74,8 @@ export default class Recorder implements iLoadsterRecorder {
   getStatus() {
     return {
       enabled: this.recording,
-      options: this.recordingOptions
+      options: this.recordingOptions,
+      permissions: this.permissions,
     };
   }
 
