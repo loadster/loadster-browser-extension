@@ -11,7 +11,7 @@
   "files": ["dist/lib"],
   "description": "Create test scripts to run in Loadster.",
   "scripts": {
-    "postinstall": "node -e \"import('./scripts/apply-patches.mjs').catch(() => {})\"",
+    "prepare": "node -e \"import('./scripts/apply-patches.mjs').catch(() => {})\" && npm run build:lib",
     "dev": "vite dev",
     "dev:firefox": "cross-env TARGET=firefox vite dev",
     "build:lib": "vite build --config vite.config.lib.ts && tsc --project tsconfig.build.json",
@@ -24,15 +24,13 @@
     "lint": "eslint . --fix",
     "tsx": "tsc --noEmit"
   },
-  "dependencies": {
+  "devDependencies": {
     "@medv/finder": "^3.2.0",
     "@mizchi/selector-generator": "^1.50.0-next",
     "events": "^3.3.0",
     "playwright-core": "1.58.0",
     "vue": "^3.5.30",
-    "webextension-polyfill": "^0.12.0"
-  },
-  "devDependencies": {
+    "webextension-polyfill": "^0.12.0",
     "@eslint/js": "^9.9.0",
     "@types/chrome": "^0.1.37",
     "@types/node": "^25.3.3",
