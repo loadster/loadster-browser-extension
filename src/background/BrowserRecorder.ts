@@ -1,7 +1,7 @@
 import browser from 'webextension-polyfill';
 import Recorder from './Recorder';
 import { generateId } from './utils.js';
-import { type LoadsterPortMessage, RecorderMessageType, RecordingTrackingData } from '../../index';
+import { type BrowserEvent, type LoadsterPortMessage, RecorderMessageType, type RecordingTrackingData } from '../../index';
 import { parseRecorderConfig } from '../utils/messagingUtils';
 
 const { ENDPOINT_PAGE_CONNECT, NAVIGATE_URL, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION, RECORDING_TRACKING } = RecorderMessageType;
@@ -53,7 +53,7 @@ export default class BrowserRecorder extends Recorder {
     });
   }
 
-  onCreatedTab(tab) {
+  onCreatedTab(tab: browser.Tabs.Tab) {
     if (this.tabIds.has(tab.openerTabId) && tab.openerTabId !== tab.id) {
       this.stopBlinkingTitle();
       this.tabIds.clear();
@@ -61,12 +61,12 @@ export default class BrowserRecorder extends Recorder {
     }
   }
 
-  setupPageContentPort(pagePort) {
+  setupPageContentPort(pagePort: browser.Runtime.Port) {
     this.pagePort = pagePort;
 
-    pagePort.onMessage.addListener(msg => {
+    pagePort.onMessage.addListener((msg: LoadsterPortMessage) => {
       if (msg.type === USER_ACTION) {
-        this.uploadBrowserEvent(msg.data);
+        this.uploadBrowserEvent(msg.data as unknown as BrowserEvent);
       }
     });
 
@@ -74,7 +74,7 @@ export default class BrowserRecorder extends Recorder {
     this.updateWindowsRecordingStatus();
   }
 
-  sendMessageToLoadster(type, data) {
+  sendMessageToLoadster(type: string, data: unknown) {
     try {
       this.port.postMessage({ type, data });
     } catch (err) {
@@ -82,7 +82,7 @@ export default class BrowserRecorder extends Recorder {
     }
   }
 
-  sendMessageToPage(type, data) {
+  sendMessageToPage(type: string, data: unknown) {
     try {
       this.pagePort?.postMessage({ type, data });
     } catch (err) {
@@ -152,7 +152,7 @@ export default class BrowserRecorder extends Recorder {
     }
   }
 
-  async injectForegroundScripts(tabId) {
+  async injectForegroundScripts(tabId: number) {
     try {
       const { manifest_version } = browser.runtime.getManifest();
 
@@ -179,7 +179,7 @@ export default class BrowserRecorder extends Recorder {
     }
   }
 
-  uploadBrowserEvent(event) {
+  uploadBrowserEvent(event: BrowserEvent) {
     this.sendMessageToLoadster(RECORDING_EVENTS, {
       http: {},
       browser: {
@@ -188,7 +188,7 @@ export default class BrowserRecorder extends Recorder {
     });
   }
 
-  async navigationCommitted(details) {
+  async navigationCommitted(details: browser.WebNavigation.OnCommittedDetailsType & { frameType?: string }) {
     const { tabId, frameId, frameType, transitionType, transitionQualifiers, ...data } = details;
 
     if (this.tabIds.has(tabId)) {

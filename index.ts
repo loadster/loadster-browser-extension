@@ -64,7 +64,7 @@ export type LoadsterPortMessage = {
 export interface BrowserEvent {
   action: string;
   data: {
-    timestamp: number;
+    timestamp?: number;
 
     url?: string;
     transitionType?: string;
@@ -74,7 +74,7 @@ export interface BrowserEvent {
     attrs?: Record<string, string>;
     [key: string]: unknown;
   };
-  tabId: number;
+  tabId?: number;
 }
 
 export interface BrowserRecordingEventsData {
@@ -85,17 +85,23 @@ export interface PlaywrightRecordingEventsData {
   playwright: { code: string };
 }
 
-export interface ProtocolRequest {
+export interface HttpRecorderEvent {
+  requestId: string;
   url: string;
   method: string;
-  statusCode: number;
   type: string;
+  tabId: number;
+  statusCode?: number;
+  timeStamp?: number;
+  timeStarted?: number;
+  timeCompleted?: number;
+  completed?: boolean;
 
   [key: string]: unknown;
 }
 
 export interface HttpRecordingEventsData {
-  http: Record<string, ProtocolRequest>;
+  http: Record<string, HttpRecorderEvent>;
 }
 
 export type RecordingEventsDataMap = {

@@ -1,5 +1,5 @@
 import browser, { type ContentScripts } from 'webextension-polyfill';
-import { BridgeEvent, type LoadsterPortMessage, type LoadsterRecorderStatus, type RecordingOptions, RecorderMessageType } from '../../index';
+import { BridgeEvent, type ExtensionPermissions, type LoadsterPortMessage, type LoadsterRecorderStatus, type RecordingOptions, RecorderMessageType } from '../../index';
 
 const { RECORDING_STATUS, RECORDING_STOP, OPTIONS } = RecorderMessageType;
 const { PING, PONG } = BridgeEvent;
@@ -63,7 +63,7 @@ export default class Recorder implements iLoadsterRecorder {
     });
   }
 
-  async checkPermissions() {
+  async checkPermissions(): Promise<ExtensionPermissions> {
     const incognito = await browser.extension.isAllowedIncognitoAccess();
 
     return {
@@ -71,7 +71,7 @@ export default class Recorder implements iLoadsterRecorder {
     };
   }
 
-  getStatus() {
+  getStatus(): LoadsterRecorderStatus {
     return {
       enabled: this.recording,
       options: this.recordingOptions,

@@ -9,20 +9,20 @@
 
 import browser from 'webextension-polyfill';
 import { createMessage } from '../utils/messagingUtils.js';
-import { RecorderMessageType, BridgeEvent, type LoadsterPortMessage } from '../../index';
+import { RecorderMessageType, BridgeEvent, RecorderType, type LoadsterPortMessage } from '../../index';
 
 const { RECORDING_EVENTS, RECORDING_STOP, RECORDING_TRACKING } = RecorderMessageType;
 const { PONG } = BridgeEvent;
 
 console.log('loadsterBridge.js injected');
 
-function sendMessageToClient(type, data, version, app) {
+function sendMessageToClient(type: string, data: unknown, version: string, app: RecorderType) {
   window.dispatchEvent(new CustomEvent(type, {
     detail: createMessage({ app, version, type, data })
   }));
 }
 
-function configurePort(recorderType) {
+function configurePort(recorderType: RecorderType) {
   const manifest = browser.runtime.getManifest();
   const port = browser.runtime.connect({ name: JSON.stringify({ recorderType }) }); // see background.js => browser.runtime.onConnect
 
@@ -45,7 +45,7 @@ function configurePort(recorderType) {
   }
 
   // From Loadster script to background
-  function onBridgeMessage(event) {
+  function onBridgeMessage(event: CustomEvent<{ type: string; [key: string]: unknown }>) {
     sendMessageToBackground(event.detail.type, event.detail);
   }
 
@@ -70,6 +70,6 @@ function configurePort(recorderType) {
   port.onDisconnect.addListener(() => window.dispatchEvent(new CustomEvent(BridgeEvent.DISCONNECTED)));
 }
 
-window.addEventListener(BridgeEvent.CONNECT, (event: any) => configurePort(event.detail.name));
+window.addEventListener(BridgeEvent.CONNECT, (event: Event) => configurePort((event as CustomEvent<{ name: RecorderType }>).detail.name));
 
 window.dispatchEvent(new CustomEvent(BridgeEvent.READY));

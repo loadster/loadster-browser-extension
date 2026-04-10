@@ -1,7 +1,7 @@
 import browser, { type WebRequest } from 'webextension-polyfill';
 import Recorder from './Recorder';
 import { toBase64 } from './utils.js';
-import { RecorderMessageType } from '../../index';
+import { type LoadsterPortMessage, type HttpRecorderEvent, RecorderMessageType } from '../../index';
 
 const { NAVIGATE_URL, RECORDING_EVENTS } = RecorderMessageType;
 
@@ -10,12 +10,12 @@ const { NAVIGATE_URL, RECORDING_EVENTS } = RecorderMessageType;
 const isFirefox = __BROWSER__ === 'firefox';
 
 export default class HttpRecorder extends Recorder {
-  requests: Record<string, any> = {};  // Requests are stored here until they are uploaded
+  requests: Record<string, Record<string, unknown>> = {};  // Requests are stored here until they are uploaded
 
-  constructor(contentScriptPort) {
+  constructor(contentScriptPort: browser.Runtime.Port) {
     super(contentScriptPort);
 
-    contentScriptPort.onMessage.addListener(async (message) => {
+    contentScriptPort.onMessage.addListener(async (message: LoadsterPortMessage) => {
       if (message.type === NAVIGATE_URL) {
         this.recording = true;
 
@@ -67,7 +67,7 @@ export default class HttpRecorder extends Recorder {
   /**
    * Stores a request if we haven't seen it before; otherwise updates it.
    */
-  requestUpdated = async (info) => {
+  requestUpdated = async (info: WebRequest.OnBeforeRequestDetailsType) => {
     const IGNORED_PREFIXES = [
       'http://localhost',
       'https://loadster.com',
@@ -98,15 +98,15 @@ export default class HttpRecorder extends Recorder {
             const part = info.requestBody.raw[i];
 
             if (part.bytes) {
-              part.base64 = toBase64(part.bytes);
+              (part as WebRequest.UploadData & { base64?: string }).base64 = toBase64(part.bytes as unknown as Uint8Array);
             }
           }
         }
 
         // Copy properties
-        for (let prop in info) {
+        for (const prop in info) {
           if (Object.prototype.hasOwnProperty.call(info, prop)) {
-            this.requests[info.requestId][prop] = info[prop];
+            this.requests[info.requestId][prop] = (info as unknown as Record<string, unknown>)[prop];
           }
         }
       } catch (err) {
@@ -117,7 +117,7 @@ export default class HttpRecorder extends Recorder {
   //
   // Updates a request and checks if it's being redirected.
   //
-  headersReceived = async (info) => {
+  headersReceived = async (info: WebRequest.OnHeadersReceivedDetailsType) => {
     await this.requestUpdated(info);
 
     if (info.statusCode === 301 || info.statusCode === 302) {
@@ -128,11 +128,11 @@ export default class HttpRecorder extends Recorder {
   // Clones a request when it is redirected, marking the redirected one as complete and
   // keeping the original for further updates.
   //
-  requestRedirected = async (info) => {
+  requestRedirected = async (info: WebRequest.OnHeadersReceivedDetailsType) => {
     const request = this.requests[info.requestId];
 
     if (request) {
-      const redirected: { [key: string]: any; } = {};
+      const redirected: Record<string, unknown> = {};
 
       for (let prop in request) {
         if (Object.prototype.hasOwnProperty.call(request, prop)) {
@@ -142,35 +142,32 @@ export default class HttpRecorder extends Recorder {
 
       request.timeStarted = new Date().getTime();
 
-      redirected.requestId = request.requestId + '_' + Math.round(Math.random() * 1000000);
+      const newRequestId = `${String(request.requestId)}_${Math.round(Math.random() * 1000000)}`;
+      redirected.requestId = newRequestId;
       redirected.completed = true;
       redirected.timeCompleted = new Date().getTime();
 
-      this.requests[redirected.requestId] = redirected;
+      this.requests[newRequestId] = redirected;
 
-      await this.uploadRequest(this.requests[redirected.requestId], redirected.requestId);
-
-      delete this.requests[redirected.requestId];
+      this.uploadRequest(this.requests[newRequestId] as HttpRecorderEvent, newRequestId);
     }
   };
   //
   // Finishes a normal request, marking it completed.
   //
-  finishRequest = async (info) => {
+  finishRequest = async (info: WebRequest.OnCompletedDetailsType) => {
     await this.requestUpdated(info);
 
     if (info.requestId && this.requests[info.requestId]) {
       this.requests[info.requestId].completed = true;
       this.requests[info.requestId].timeCompleted = new Date().getTime();
 
-      await this.uploadRequest(this.requests[info.requestId], info.requestId);
-
-      delete this.requests[info.requestId];
+      this.uploadRequest(this.requests[info.requestId] as HttpRecorderEvent, info.requestId);
     }
   };
 
-  uploadRequest(request, id) {
-    if (this.tabIds.has(request.tabId)) {
+  uploadRequest(request: HttpRecorderEvent, id: string) {
+    if (request.tabId !== undefined && this.tabIds.has(request.tabId)) {
       this.port.postMessage({
         type: RECORDING_EVENTS,
         data: {
@@ -179,5 +176,6 @@ export default class HttpRecorder extends Recorder {
         }
       });
     }
+    delete this.requests[id];
   }
 }

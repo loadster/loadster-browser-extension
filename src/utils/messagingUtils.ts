@@ -1,5 +1,8 @@
+import type { BridgeMessage } from '../../index';
 
-export function parseRecorderConfig(json) {
+declare function cloneInto<T>(obj: T, scope: Window, options?: { cloneFunctions?: boolean }): T;
+
+export function parseRecorderConfig(json: string): { recorderType?: string; endpointName?: string } | null {
   try {
     return JSON.parse(json);
   } catch (err) {
@@ -7,7 +10,7 @@ export function parseRecorderConfig(json) {
   }
 }
 
-export function createMessage(msg) {
+export function createMessage<T>(msg: T): T {
   // Firefox's security issue
   // eslint-disable-next-line no-undef
   if (__BROWSER__ === 'firefox' && typeof cloneInto === 'function') {
@@ -17,3 +20,5 @@ export function createMessage(msg) {
     return msg;
   }
 }
+
+export type { BridgeMessage };
