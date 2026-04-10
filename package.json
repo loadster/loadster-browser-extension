@@ -2,15 +2,19 @@
   "name": "loadster-browser-extension",
   "type": "module",
   "version": "28.0.0",
-  "types": "./index.ts",
   "exports": {
-    ".": "./index.ts"
+    ".": {
+      "types": "./dist/lib/index.d.ts",
+      "import": "./dist/lib/index.js"
+    }
   },
+  "files": ["dist/lib"],
   "description": "Create test scripts to run in Loadster.",
   "scripts": {
     "postinstall": "node scripts/apply-patches.mjs",
     "dev": "vite dev",
     "dev:firefox": "cross-env TARGET=firefox vite dev",
+    "build:lib": "vite build --config vite.config.lib.ts && tsc --project tsconfig.build.json",
     "build": "npm run build-chrome & npm run build-firefox",
     "build-chrome": "cross-env TARGET=chrome vite build",
     "build-firefox": "cross-env TARGET=firefox vite build",

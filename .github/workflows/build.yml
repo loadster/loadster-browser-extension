@@ -12,10 +12,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm install --no-save @rollup/rollup-linux-x64-gnu
+      - run: npm run build:lib
       - run: npm run build
       - name: Get version
         id: version

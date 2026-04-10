@@ -53,10 +53,3 @@ export type LoadsterPortMessage = {
     value?: any,
   }
 }
-
-declare global {
-  interface Window {
-    trackEvent: (eventName: string, detail?: Record<string, any>) => boolean;
-    loadsterOriginalTitle?: string;
-  }
-}

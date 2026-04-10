@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist/lib",
+    "strict": false,
+    "skipLibCheck": true
+  },
+  "include": ["index.ts"]
+}
