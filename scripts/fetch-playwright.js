@@ -8,7 +8,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, rmSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -34,11 +34,16 @@ function run(cmd, cwd = ROOT) {
   execSync(cmd, { cwd, stdio: 'inherit' });
 }
 
-if (existsSync(TARGET_DIR)) {
+const GIT_DIR = resolve(TARGET_DIR, '.git');
+
+if (existsSync(GIT_DIR)) {
   console.log('playwright/ already exists — updating...');
   run(`git fetch --depth=1 origin ${PLAYWRIGHT_REF}`, TARGET_DIR);
   run(`git checkout FETCH_HEAD`, TARGET_DIR);
 } else {
+  if (existsSync(TARGET_DIR)) {
+    rmSync(TARGET_DIR, { recursive: true, force: true });
+  }
   console.log(`Fetching Playwright ${PLAYWRIGHT_REF} (sparse)...`);
   run(
     `git clone --filter=blob:none --no-checkout --depth=1 --branch ${PLAYWRIGHT_REF} https://github.com/microsoft/playwright.git playwright`,
@@ -48,4 +53,5 @@ if (existsSync(TARGET_DIR)) {
   run(`git checkout`, TARGET_DIR);
 }
 
+rmSync(GIT_DIR, { recursive: true, force: true });
 console.log('Done. Playwright source available at playwright/');
