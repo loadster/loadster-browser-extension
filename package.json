@@ -11,7 +11,7 @@
   "files": ["dist/lib"],
   "description": "Create test scripts to run in Loadster.",
   "scripts": {
-    "prepare": "node -e \"import('./scripts/apply-patches.mjs').catch(() => {})\" && npm run build:lib",
+    "prepare": "npm run build:lib",
     "dev": "vite dev",
     "dev:firefox": "cross-env TARGET=firefox vite dev",
     "build:lib": "vite build --config vite.config.lib.ts && tsc --project tsconfig.build.json",

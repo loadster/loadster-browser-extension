@@ -57,18 +57,6 @@ See dedicated instructions in `.claude/skills/browser-recorder.md`
 
 See dedicated instructions in `.claude/skills/playwright-recorder.md`
 
-## Patched Dependencies
-
-### vite-plugin-web-extension (race condition fix)
-
-`patches/vite-plugin-web-extension+4.5.0.patch` documents the fix; it is applied by `scripts/apply-patches.mjs` (not `patch-package`).
-
-**Root cause:** `overlayWatchPlugin` spawns a child process that writes to `src/generated/overlayInjected.js`, which triggers a Vite watcher rebuild while `openBrowser()` is still in progress. At that point `extensionRunner` exists but its internal `runner` hasn't been assigned yet (waiting for `webExt.cmd.run()` to resolve), so calling `runner.reloadAllExtensions()` throws `TypeError: Cannot read properties of undefined (reading 'reloadAllExtensions')`.
-
-**Fix:** wrap the `reload()` body in `if (runner) { ... }` so calls that arrive before `runner` is ready are silently ignored.
-
-The patch is applied automatically on `npm install` via `postinstall: node scripts/apply-patches.mjs`. The script uses only Node.js built-ins (no `patch-package` binary), is idempotent, and warns if the target code is no longer present (e.g. after a package version bump).
-
 ### TODO
 
 - Introduce testing engine [vitest](https://vitest.dev/guide/) (or similar)
