@@ -33,42 +33,58 @@ The repository ships two artifacts that share a single version (the one in `pack
 1. The browser extension itself, distributed via the Chrome Web Store and Firefox Add-ons.
 2. A pre-built ESM library tarball, attached to a GitHub Release and consumable as an npm dependency by other Loadster repos. The `release.yml` workflow automates this.
 
-### Cutting a stable release
+### Bumping the version
+
+Use `--no-git-tag-version` to bump `package.json` on a feature branch without auto-creating a tag (the tag should only be created from `master` after the PR merges):
 
 ```bash
-npm version patch        # or minor / major — bumps package.json and creates a vX.Y.Z tag
-git push --follow-tags   # pushes the commit and the tag
+npm version major --no-git-tag-version   # or minor / patch
+git add package.json package-lock.json
+git commit -m "Bump version to 29.0.0"
+git push origin <feature-branch>
+```
+
+Plain `npm version major` (without the flag) also creates a local `v29.0.0` tag. Pushing that tag from a feature branch would trip the master-ancestry guard — use `--no-git-tag-version` to avoid this.
+
+### Cutting a stable release
+
+Tag from `master` after the PR is merged. The workflow verifies the tagged commit is reachable from `master`, so stable tags from feature branches are rejected automatically.
+
+```bash
+git checkout master && git pull
+git tag v29.0.0
+git push origin v29.0.0
 ```
 
 Pushing a `v*` tag triggers `.github/workflows/release.yml`, which:
 
-1. Verifies the tag's base version matches `package.json` (fails fast on mismatch).
-2. Runs `npm ci` and `npm run build:lib`.
-3. Runs `npm pack` to produce `loadster-browser-extension-<version>.tgz`.
-4. Creates a GitHub Release for the tag and attaches the tarball with auto-generated notes.
+1. Verifies the tagged commit is reachable from `master` (stable tags only).
+2. Verifies the tag's base version matches `package.json` (fails fast on mismatch).
+3. Runs `npm ci` and `npm run build:lib`.
+4. Runs `npm pack` to produce `loadster-browser-extension-<version>.tgz`.
+5. Creates a GitHub Release and attaches the tarball with auto-generated notes.
 
 The Chrome/Firefox extension zips are submitted to the WebStore separately. Keep their version in lockstep with the lib by always cutting both from the same `package.json` bump.
 
-Stable releases should always be tagged from `master` after the PR is merged.
-
 ### Pre-release testing
 
-To share a test build with a consumer repo without changing `package.json` or polluting the PR, build and upload manually from your local machine:
+To share a test build from an unmerged feature branch, push a tag with a prerelease suffix — no local build tooling required, CI does everything:
 
 ```bash
-npm run build:lib
-npm pack
-gh release create v28.0.0-test.1 --prerelease loadster-browser-extension-28.0.0.tgz
+git tag v29.0.0-test.1   # base version must match package.json
+git push origin v29.0.0-test.1
 ```
 
-The tarball filename always reflects `package.json` version (`loadster-browser-extension-28.0.0.tgz`); the tag and release URL distinguish test builds. The consumer references the full download URL, so this is unambiguous.
+The workflow skips the master-ancestry check for prerelease tags, builds the lib, and creates a GitHub Release marked as pre-release. The consumer references the download URL:
 
-CI does not handle test builds — `release.yml` only accepts tags whose version exactly matches `package.json`, keeping stable-release verification strict.
+```
+https://github.com/loadster/loadster-browser-extension/releases/download/v29.0.0-test.1/loadster-browser-extension-29.0.0.tgz
+```
 
 Once testing is done, clean up:
 
 ```bash
-gh release delete v28.0.0-test.1 --yes --cleanup-tag
+gh release delete v29.0.0-test.1 --yes --cleanup-tag
 ```
 
 ### Consuming the lib in another repo
