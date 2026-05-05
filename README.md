@@ -53,16 +53,23 @@ Stable releases should always be tagged from `master` after the PR is merged.
 
 ### Pre-release testing
 
-To share a test build with a consumer repo without changing `package.json` or polluting the PR:
+To share a test build with a consumer repo without changing `package.json` or polluting the PR, build and upload manually from your local machine:
 
 ```bash
-git tag v28.0.0-test.1   # base version must match package.json (28.0.0 here)
-git push origin v28.0.0-test.1
+npm run build:lib
+npm pack
+gh release create v28.0.0-test.1 --prerelease loadster-browser-extension-28.0.0.tgz
 ```
 
-The workflow verifies the base version (`28.0.0`) matches `package.json` and marks the GitHub Release as a pre-release. The consumer references the tarball URL as usual — the tarball filename is always based on `package.json` version, not the tag suffix.
+The tarball filename always reflects `package.json` version (`loadster-browser-extension-28.0.0.tgz`); the tag and release URL distinguish test builds. The consumer references the full download URL, so this is unambiguous.
 
-Delete the pre-release tag and GitHub Release once testing is done.
+CI does not handle test builds — `release.yml` only accepts tags whose version exactly matches `package.json`, keeping stable-release verification strict.
+
+Once testing is done, clean up:
+
+```bash
+gh release delete v28.0.0-test.1 --yes --cleanup-tag
+```
 
 ### Consuming the lib in another repo
 
