@@ -1,4 +1,4 @@
-# Browser Recorder Implementation Reference
+[# Browser Recorder Implementation Reference]()
 
 This document describes how the `BrowserRecorder.ts` works in the Loadster browser extension.
 Use it as a reference for maintenance, debugging, and future changes.

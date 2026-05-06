@@ -5,6 +5,7 @@ Use it as a reference for maintenance, debugging, and future changes.
 
 ## Overview
 
+
 The recorder captures user interactions in a Chrome tab and generates valid [playwright-test](https://playwright.dev/docs/api/class-test) code in real time.
 To do so, the recorder injects a content script into the page using `PlaywrightController.ts` and communicates with the page via Chrome DevTools Protocol (CDP).
 The injected content script includes the original Playwright's [InjectedScript](https://github.com/microsoft/playwright/blob/main/packages/injected/src/injectedScript.ts).
@@ -52,7 +53,7 @@ controller.
 | `src/generated/playwright-codegen.js`             | Pre-built ESM (~208KB) — `generateCode`, `JavaScriptLanguageGenerator`, `collapseActions`, `shouldMergeAction` |
 | `src/generated/playwright-recorder-source.js`     | Exports `pollingRecorderSource` string (available, not currently used)                                         |
 | `src/background/PlaywrightRecorder.ts`            | Extension integration — creates RecorderController                                                             |
-| `src/background/playwright/RecorderController.ts` | CDP controller — attaches debugger, injects recorder, accumulates actions, generates code                      
+| `src/background/playwright/RecorderController.ts` | CDP controller — attaches debugger, injects recorder, accumulates actions, generates code
 
 ## CDP Binding Protocol
 
