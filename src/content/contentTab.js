@@ -1,6 +1,8 @@
-import { RECORDING_STATUS, USER_ACTION, ENDPOINT_PAGE_CONNECT } from './constants.js';
-import { createMessage } from './utils/windowUtils.js';
+import { RecorderMessageType } from '../../index.ts';
+import { createMessage } from '../utils/messagingUtils.js';
 import browser from 'webextension-polyfill';
+
+const { RECORDING_STATUS, USER_ACTION, ENDPOINT_PAGE_CONNECT } = RecorderMessageType;
 
 let port;
 
@@ -34,7 +36,7 @@ function forwardPortMessageToPage (message) {
 
 function onPageShow (event) {
   if (event.persisted) {
-    // The page is restored from BFCache, old connection is lost, set up a new connection.
+    // The page is restored from BFCache, the old connection is lost, set up a new connection.
     connect();
   }
 }

@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Stable releases must come from master
+        if: ${{ !contains(github.ref_name, '-') }}
+        run: |
+          git fetch origin master --depth=1
+          if ! git merge-base --is-ancestor HEAD origin/master; then
+            echo "Stable tag $GITHUB_REF_NAME must point to a commit reachable from master."
+            exit 1
+          fi
+
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p 'require("./package.json").version')
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          BASE_TAG_VERSION="${TAG_VERSION%%-*}"
+          if [ "$PKG_VERSION" != "$BASE_TAG_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME base version ($BASE_TAG_VERSION) does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run build:lib
+      - run: npm pack
+
+      - name: Create GitHub release with lib tarball
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PRERELEASE_FLAG=$([[ "$GITHUB_REF_NAME" == *"-"* ]] && echo "--prerelease" || echo "")
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            $PRERELEASE_FLAG \
+            loadster-browser-extension-*.tgz

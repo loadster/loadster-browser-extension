@@ -1,17 +1,24 @@
-export function overrideEventListeners() {
+interface LoadsterCapturedListener {
+  type: string;
+  listener: EventListenerOrEventListenerObject;
+  options?: boolean | AddEventListenerOptions;
+}
+
+declare global {
+  interface Element {
+    _loadsterCapturedEventListeners?: Record<string, LoadsterCapturedListener[]>;
+    getLoadsterCapturedEventListeners(type: string): LoadsterCapturedListener[];
+    getLoadsterCapturedEventListeners(type?: undefined): Record<string, LoadsterCapturedListener[]>;
+  }
+}
+
+export function overrideEventListeners(): void {
   // Store the original addEventListener method
   const originalAddEventListener = Element.prototype.addEventListener;
   const originalRemoveEventListener = Element.prototype.removeEventListener;
 
   // Override addEventListener
   Element.prototype.addEventListener = function (type, listener, options) {
-    // console.log('Event listener added:', {
-    //   element: this,
-    //   type: type,
-    //   listener: listener,
-    //   options: options
-    // });
-
     // Call the original addEventListener method
     originalAddEventListener.call(this, type, listener, options);
 
@@ -36,7 +43,7 @@ export function overrideEventListeners() {
     }
   };
 
-  Element.prototype.getLoadsterCapturedEventListeners = function (type) {
+  Element.prototype.getLoadsterCapturedEventListeners = function (type?: string) {
     if (!this._loadsterCapturedEventListeners) this._loadsterCapturedEventListeners = {};
 
     // return requested listeners type or all them
@@ -48,25 +55,14 @@ export function overrideEventListeners() {
   };
 }
 
-export function createMessage(msg) {
-  // Firefox's security issue
-  // eslint-disable-next-line no-undef
-  if (__BROWSER__ === 'firefox' && typeof cloneInto === 'function') {
-    // eslint-disable-next-line no-undef
-    return cloneInto(msg, window, { 'cloneFunctions': true });
-  } else {
-    return msg;
-  }
-}
-
 // Remove the :hover part of the selector to match the element itself
-function getBaseSelector(rule) {
+function getBaseSelector(rule: CSSStyleRule): string {
   return rule.selectorText.replace(':hover', '').trim();
 }
 
 // Get all CSSStyleRule[] from document that use :hover
-function getAllHoverRules() {
-  const hoverRules = [];
+function getAllHoverRules(): CSSStyleRule[] {
+  const hoverRules: CSSStyleRule[] = [];
 
   for (const stylesheet of document.styleSheets) {
     try {
@@ -78,7 +74,6 @@ function getAllHoverRules() {
         }
       }
     } catch (e) {
-      // console.log(e);
       // console.warn('Could not access some stylesheets due to cross-origin policy.');
     }
   }
@@ -86,8 +81,8 @@ function getAllHoverRules() {
   return hoverRules;
 }
 
-// Get CSStyleRule in given collection
-function getElementCSSHoverRule(hoverRules, targetElement) {
+// Get CSSStyleRule in given collection
+function getElementCSSHoverRule(hoverRules: CSSStyleRule[], targetElement: Element): CSSStyleRule | undefined {
   for (const rule of hoverRules) {
     const baseSelector = getBaseSelector(rule);
 
@@ -97,11 +92,14 @@ function getElementCSSHoverRule(hoverRules, targetElement) {
   }
 }
 
-export function setupCSSHoverEventListener(immediate = true) {
-  const hoverRules = [];
+export function setupCSSHoverEventListener(immediate = true): {
+  getElementWithCSSHoverRule: (targetElement: Element) => Element | null | undefined;
+  elementHasCSSHoverRule: (targetElement: Element) => boolean;
+} {
+  const hoverRules: CSSStyleRule[] = [];
   const PERF_WARN_THRESHOLD_MS = 100;
 
-  function collectHoverRules() {
+  function collectHoverRules(): CSSStyleRule[] {
     const start = performance.now();
     const rules = getAllHoverRules();
     const duration = performance.now() - start;
@@ -119,7 +117,7 @@ export function setupCSSHoverEventListener(immediate = true) {
     });
   }
 
-  function getElementWithCSSHoverRule(targetElement) {
+  function getElementWithCSSHoverRule(targetElement: Element): Element | null | undefined {
     return hoverRules.map(hoverRule => {
       const baseSelector = getBaseSelector(hoverRule);
 
@@ -127,10 +125,8 @@ export function setupCSSHoverEventListener(immediate = true) {
     }).find(el => !!el);
   }
 
-  function elementHasCSSHoverRule(targetElement) {
+  function elementHasCSSHoverRule(targetElement: Element): boolean {
     const rule = getElementCSSHoverRule(hoverRules, targetElement);
-
-    // rule && (targetElement.style.border = '1px solid red'); // Debug
 
     return !!rule;
   }

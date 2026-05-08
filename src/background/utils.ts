@@ -1,4 +1,4 @@
-export function toBase64(buffer) {
+export function toBase64(buffer: Iterable<number>) {
   let binary = '';
   const bytes = new Uint8Array(buffer);
   const length = bytes.byteLength;
@@ -10,6 +10,6 @@ export function toBase64(buffer) {
   return btoa(binary);
 }
 
-export function generateId(prefix) {
+export function generateId(prefix: string) {
   return `${prefix}_${Math.random().toString(36).substring(2, 9)}`;
 }

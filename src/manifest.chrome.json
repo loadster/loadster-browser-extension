@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "minimum_chrome_version": "92",
+  "icons": {
+    "16": "icon-16x16.png",
+    "32": "icon-32x32.png",
+    "48": "icon-48x48.png",
+    "128": "icon-128x128.png",
+    "256": "icon-256x256.png"
+  },
+  "background": {
+    "service_worker": "src/background/background.ts"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icon-16x16.png",
+      "32": "icon-32x32.png"
+    },
+    "default_popup": "src/index.html",
+    "default_title": "Record"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://localhost/*",
+        "https://loadster.com/*",
+        "https://loadster.app/*",
+        "https://*.loadster.com/*",
+        "https://*.loadster.app/*"
+      ],
+      "js": [
+        "src/content/loadsterBridge.ts"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "permissions": [
+    "scripting",
+    "webRequest",
+    "webNavigation",
+    "debugger"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ]
+}

@@ -1,42 +1,88 @@
 import { defineConfig } from 'vite';
 import webExtension, { readJsonFile } from 'vite-plugin-web-extension';
+import { spawn } from 'child_process';
+import path from 'path';
 
-// eslint-disable-next-line no-undef
+/**
+ * Builds overlayInjected.js once at dev-server startup and exposes a CLI
+ * shortcut (press `o`) for on-demand rebuilds. No file watcher — avoids
+ * race conditions from rapid saves and infinite HMR loops.
+ *
+ * Production builds use the `prebuild` npm hook instead (unchanged).
+ */
+function overlayBuildPlugin() {
+  const bundleScript = path.resolve(process.cwd(), 'scripts/bundle-overlay.mjs');
+  let building = false;
+
+  function rebuild() {
+    if (building) {
+      console.log('[overlay] rebuild already in progress, ignoring');
+      return Promise.resolve();
+    }
+    building = true;
+    return new Promise((resolve) => {
+      spawn('node', [bundleScript], { stdio: 'inherit' }).on('exit', (code) => {
+        building = false;
+        if (code !== 0) console.error(`[overlay] bundle-overlay.mjs exited with code ${code}`);
+        resolve();
+      });
+    });
+  }
+
+  return {
+    name: 'overlay-build',
+    apply: 'serve',
+    async configureServer(server) {
+      await rebuild();
+
+      const originalBind = server.bindCLIShortcuts.bind(server);
+      server.bindCLIShortcuts = (options = {}) => {
+        originalBind({
+          ...options,
+          customShortcuts: [
+            ...(options.customShortcuts ?? []),
+            { key: 'o', description: 'rebuild overlay (overlayInjected.js)', action: () => rebuild() },
+          ],
+        });
+      };
+    },
+  };
+}
+
+
 const target = process.env.TARGET || 'chrome';
 
 export default defineConfig({
+  resolve: {
+    alias: { events: 'events' },
+  },
   define: {
     __BROWSER__: JSON.stringify(target),
-  }, build: {
+  },
+  build: {
     outDir: `dist/${target}`,
     emptyOutDir: true,
     sourcemap: true,
-  }, plugins: [
+  },
+  plugins: [
+    overlayBuildPlugin(),
     webExtension({
       verbose: true,
       browser: target, manifest: () => {
         // Use `readJsonFile` instead of import/require to avoid caching during rebuild.
         const pkg = readJsonFile('package.json');
-        const template = readJsonFile(target === 'chrome' ? 'manifest.chrome.json' : 'manifest.firefox.json');
-        const manifest = {
+        const template = readJsonFile(target === 'chrome' ? './src/manifest.chrome.json' : './src/manifest.firefox.json');
+
+        return {
           ...template,
           version: pkg.version,
-          name: pkg.name,
+          name: 'Loadster Recorder Extension',
           description: pkg.description,
         };
-
-        if (target === 'firefox') {
-          manifest.browser_specific_settings = {
-            "gecko": {
-              "id": "{f03c369b-ec55-4eac-97cd-79f775e60320}"
-            }
-          };
-        }
-
-        return manifest;
       },
       additionalInputs: [
-        'src/contentTab.js',
+        'src/index.html',
+        'src/content/contentTab.js',
         'src/content/windowEventRecorder.js'
       ]
     })

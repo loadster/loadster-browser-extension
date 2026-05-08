@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": false,
+    "strict": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "chrome",
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@recorder/recorderTypes": [
+        "./src/playwright-ui/recorderTypes.ts"
+      ],
+      "@recorder/actions": [
+        "./src/playwright-ui/recorderActions.ts"
+      ]
+    }
+  },
+  "include": [
+    "vite.config.ts",
+    "vite.env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.vue"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
