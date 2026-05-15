@@ -209,7 +209,7 @@ Each recorded action is wrapped and sent via `RECORDING_EVENTS` to the Loadster 
 
 ---
 
-## LocatorBrowserRecorder — Playwright-style alternative (RecorderType.BROWSER_LOCATOR)
+## LocatorBrowserRecorder — Playwright-style alternative
 
 This recorder produces Playwright-quality, accessibility-aware selectors and emits structured `ElementLocatorSpec[]` objects instead of CSS strings. It is intended to eventually replace the legacy `BrowserRecorder`.
 
@@ -260,7 +260,3 @@ contentTab.js (ISOLATED) → background → Loadster dashboard
 - `recordClickEvents: 'closest'` mode
 - Visual overlay
 - Code generation
-
-### Selector engine activation
-
-`RecorderType.BROWSER_LOCATOR = 'loadster-browser-locator-recorder'` must be sent from the Loadster dashboard at connect time. The background dispatcher (`background.ts`) constructs `LocatorBrowserRecorder` for this type.

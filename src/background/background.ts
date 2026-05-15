@@ -18,8 +18,7 @@ browser.runtime.onConnect.addListener((port) => {
   if (config === null) return; // Unknown application
 
   if (RecorderType.BROWSER === config.recorderType) {
-    activeRecorder = new BrowserRecorder(port);
-  } else if (RecorderType.BROWSER_LOCATOR === config.recorderType) {
+    // activeRecorder = new BrowserRecorder(port);
     activeRecorder = new LocatorBrowserRecorder(port);
   } else if (RecorderType.HTTP === config.recorderType) {
     activeRecorder = new HttpRecorder(port);

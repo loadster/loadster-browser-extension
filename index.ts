@@ -23,8 +23,7 @@ export enum RecorderMessageType {
 export enum RecorderType {
   HTTP = 'loadster-http-recorder',
   BROWSER = 'loadster-browser-recorder',
-  PLAYWRIGHT = 'loadster-playwright-recorder',
-  BROWSER_LOCATOR = 'loadster-browser-locator-recorder',
+  PLAYWRIGHT = 'loadster-playwright-recorder'
 }
 
 export interface RecordingOptions {
@@ -107,7 +106,6 @@ export interface HttpRecordingEventsData {
 
 export type RecordingEventsDataMap = {
   [RecorderType.BROWSER]: BrowserRecordingEventsData;
-  [RecorderType.BROWSER_LOCATOR]: BrowserRecordingEventsData;
   [RecorderType.PLAYWRIGHT]: PlaywrightRecordingEventsData;
   [RecorderType.HTTP]: HttpRecordingEventsData;
 };
