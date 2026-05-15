@@ -9,16 +9,21 @@ const { ENDPOINT_PAGE_CONNECT, NAVIGATE_URL, RECORDING_STATUS, RECORDING_EVENTS,
 // eslint-disable-next-line no-undef
 const isFirefox = __BROWSER__ === 'firefox';
 
+const SCRIPT_IDS = {
+  recorder: 'loadster-locator-content-scripts',
+  overlay: 'loadster-locator-overlay',
+};
+
 export default class LocatorBrowserRecorder extends Recorder {
-  pageContentScriptId = 'loadster-locator-content-scripts';
+  pageContentScriptId = SCRIPT_IDS.recorder;
 
   static async cleanupStaleScripts() {
     if (browser.runtime.getManifest().manifest_version === 3) {
       try {
-        await browser.scripting.unregisterContentScripts({ ids: ['loadster-locator-content-scripts'] });
+        await browser.scripting.unregisterContentScripts({ ids: Object.values(SCRIPT_IDS) });
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
-        // Script wasn't registered, that's fine
+        // Scripts weren't registered, that's fine
       }
     }
   }
@@ -92,30 +97,44 @@ export default class LocatorBrowserRecorder extends Recorder {
   async registerPageContentScripts() {
     const { manifest_version } = browser.runtime.getManifest();
 
+    const excludeMatches = ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*'];
+
     if (manifest_version === 3) {
       try {
         await browser.scripting.unregisterContentScripts({
-          ids: [this.pageContentScriptId]
+          ids: Object.values(SCRIPT_IDS)
         });
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
-        // Script wasn't registered, that's fine
+        // Scripts weren't registered, that's fine
       }
 
-      await browser.scripting.registerContentScripts([{
-        matches: ['*://*/*'],
-        excludeMatches: ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*'],
-        js: ['src/content/locatorRecorder.js'],
-        id: this.pageContentScriptId,
-        allFrames: true,
-        matchOriginAsFallback: true,
-        runAt: 'document_end',
-        world: 'MAIN',
-      }]);
+      await browser.scripting.registerContentScripts([
+        {
+          matches: ['*://*/*'],
+          excludeMatches,
+          js: ['src/content/locatorRecorder.js'],
+          id: SCRIPT_IDS.recorder,
+          allFrames: true,
+          matchOriginAsFallback: true,
+          runAt: 'document_end',
+          world: 'MAIN',
+        },
+        {
+          matches: ['*://*/*'],
+          excludeMatches,
+          js: ['src/content/locator-overlay/index.js'],
+          id: SCRIPT_IDS.overlay,
+          allFrames: false,
+          matchOriginAsFallback: true,
+          runAt: 'document_end',
+          world: 'ISOLATED',
+        },
+      ]);
     } else {
-      const script = await browser.contentScripts.register({
+      const recorderScript = await browser.contentScripts.register({
         matches: ['*://*/*'],
-        excludeMatches: ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*'],
+        excludeMatches,
         js: [{
           file: 'src/content/locatorRecorder.js'
         }],
@@ -125,8 +144,19 @@ export default class LocatorBrowserRecorder extends Recorder {
         world: 'MAIN',
       });
 
+      const overlayScript = await browser.contentScripts.register({
+        matches: ['*://*/*'],
+        excludeMatches,
+        js: [{
+          file: 'src/content/locator-overlay/index.js'
+        }],
+        allFrames: false,
+        matchAboutBlank: false,
+        runAt: 'document_end',
+      });
+
       // @ts-ignore
-      this.registeredScripts.push(script);
+      this.registeredScripts.push(recorderScript, overlayScript);
     }
   }
 
@@ -144,7 +174,7 @@ export default class LocatorBrowserRecorder extends Recorder {
     const { manifest_version } = browser.runtime.getManifest();
 
     if (manifest_version === 3) {
-      await browser.scripting.unregisterContentScripts({ ids: [this.pageContentScriptId] });
+      await browser.scripting.unregisterContentScripts({ ids: Object.values(SCRIPT_IDS) });
     } else {
       this.registeredScripts.forEach(script => script.unregister());
     }

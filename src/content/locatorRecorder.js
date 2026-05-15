@@ -1,6 +1,7 @@
-import { createSelectorGenerator, toLocator } from '@mizchi/selector-generator';
+import { createSelectorGenerator } from '@mizchi/selector-generator';
 import { RecorderMessageType } from '../../index.ts';
 import { createMessage } from '../utils/messagingUtils.js';
+import { adaptSelector, includeElementAttributes } from './locator-shared/selectorAdapter.ts';
 
 const { RECORDING_STATUS, USER_ACTION } = RecorderMessageType;
 
@@ -56,63 +57,7 @@ if (!window.loadsterLocatorRecorderLoaded) {
     return path.reverse();
   }
 
-  function adaptSelector(rawSelector) {
-    try {
-      const jsonStr = toLocator(rawSelector, 'jsonl');
-      console.log(jsonStr);
-      return flattenLocatorChain(jsonStr);
-    } catch {
-      return [{ method: 'locator', selector: rawSelector }];
-    }
-  }
-
-  function flattenLocatorChain(jsonStr) {
-    let node;
-    try {
-      node = JSON.parse(jsonStr);
-    } catch {
-      return [{ method: 'locator', selector: jsonStr }];
-    }
-
-    const result = [];
-    while (node) {
-      result.push(nodeToSpec(node));
-      node = node.next ?? null;
-    }
-    return result;
-  }
-
-  function nodeToSpec({ kind, body, options = {} }) {
-    console.log([kind, body]);
-    switch (kind) {
-      case 'role':         return { method: 'getByRole', role: body, options };
-      case 'text':         return { method: 'getByText', text: body, options };
-      case 'label':        return { method: 'getByLabel', label: body, options };
-      case 'placeholder':  return { method: 'getByPlaceholder', text: body, options }; // Not supported in the dashboard
-      case 'alt':          return { method: 'getByAltText', text: body, options }; // Not supported in the dashboard
-      case 'title':        return { method: 'getByTitle', title: body, options };
-      case 'test-id':      return { method: 'getByTestId', testId: body };
-      case 'nth':          return { method: 'nth', index: parseInt(body) };
-      case 'first':        return { method: 'first' };
-      case 'last':         return { method: 'last' };
-      case 'has-text':     return { method: 'filter', options: { hasText: body, ...options } };
-      case 'has-not-text': return { method: 'filter', options: { hasNotText: body, ...options } };
-      case 'has':          return { method: 'filter', options: { has: body } }; // Not supported in the dashboard
-      case 'hasNot':       return { method: 'filter', options: { hasNot: body } };  // Not supported in the dashboard
-      case 'frame-locator': return { method: 'frameLocator', selector: body };
-      default:             return { method: 'locator', selector: body };
-    }
-  }
-
-  function includeElementAttributes(element) {
-    const attrs = {};
-    for (let i = 0, x = element.attributes, n = x.length; i < n; i++) {
-      attrs[x[i].name] = x[i].value;
-    }
-    return attrs;
-  }
-
-  const recordEvent = (e) => {
+  function recordEvent(e) {
     if (!enabled || !generateSelector) return;
 
     try {
@@ -123,14 +68,7 @@ if (!window.loadsterLocatorRecorderLoaded) {
       const framePath = window !== window.top ? buildFramePath() : [];
       const locators = [...framePath.flat(), ...adaptSelector(raw.selector)];
 
-      console.log({
-        action: e.type,
-        framePath,
-        locators,
-        raw,
-      });
-
-
+      console.log(e.type, locators, raw.selectors);
       const msg = {
         // Required data
         timestamp: Date.now(),
@@ -161,5 +99,5 @@ if (!window.loadsterLocatorRecorderLoaded) {
     } catch {
       // silently swallow — same pattern as windowEventRecorder.js
     }
-  };
+  }
 }

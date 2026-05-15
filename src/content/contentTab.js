@@ -36,13 +36,16 @@ function forwardPortMessageToPage (message) {
   }
 }
 
-window.addEventListener('loadster-locator-recorder-ready', () => {
+function replayLastStatus() {
   if (lastStatusMessage) {
     window.dispatchEvent(new CustomEvent(RECORDING_STATUS, {
       'detail': createMessage(lastStatusMessage.data)
     }));
   }
-});
+}
+
+window.addEventListener('loadster-locator-recorder-ready', replayLastStatus);
+window.addEventListener('loadster-locator-overlay-ready', replayLastStatus);
 
 function onPageShow (event) {
   if (event.persisted) {
