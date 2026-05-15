@@ -196,15 +196,71 @@ Each recorded action is wrapped and sent via `RECORDING_EVENTS` to the Loadster 
 
 ## Known Limitations and TODOs
 
-- **@medv/finder limitations (high priority):** Generates CSS-only selectors with no semantic or accessibility awareness. Selectors are fragile on dynamic class names (e.g., CSS-in-JS). Consider replacing with Playwright's selector engine (role-based via
-  ARIA, `data-testid`, label) for more robust, human-readable selectors that better match what Loadster's Playwright recorder produces.
+- **@medv/finder limitations (high priority — addressed by `LocatorBrowserRecorder`):** Generates CSS-only selectors with no semantic or accessibility awareness. Selectors are fragile on dynamic class names (e.g., CSS-in-JS). `LocatorBrowserRecorder` (see below) uses `@mizchi/selector-generator` (Playwright's engine) and resolves this.
 
-- **Event listener monkey-patching (high priority):** `overrideEventListeners()` patches `Element.prototype.addEventListener`, which is fragile. Frameworks using non-standard event delegation, shadow DOM, or `attachShadow` may not be covered. There is no
-  equivalent of Playwright's `InjectedScript` which hooks at a lower level.
+- **Event listener monkey-patching (high priority — addressed by `LocatorBrowserRecorder`):** `overrideEventListeners()` patches `Element.prototype.addEventListener`, which is fragile. The new recorder does not monkey-patch anything.
 - **No action collapsing:** Unlike PlaywrightRecorder's `collapseActions()`, every event is sent individually. Rapid sequences (e.g., multiple clicks, multiple `change` events while typing) are not merged, producing noisier recordings.
 
 - **Two content scripts complexity:** The MAIN↔ISOLATED↔background relay adds latency and messaging complexity. Note that CDP is not an option as it only works in Chrome, and the BrowserRecorder is already an alternative solution to PlaywrightRecorder (CDP, chrome only)
 
-- **Cross-origin iframes:** `frameSelector` falls back to index-based addressing (`iframe[n]`) when `window.name` is unavailable. Selectors inside cross-origin iframes cannot be constructed at all due to the security boundary.
+- **Cross-origin iframes:** `frameSelector` falls back to index-based addressing (`iframe[n]`) when `window.name` is unavailable. Selectors inside cross-origin iframes cannot be constructed at all due to the security boundary. `LocatorBrowserRecorder` drops the path with `framePath: []` for cross-origin frames (same limitation as PlaywrightRecorder).
 
 - **No visual overlay (low priority):** Unlike PlaywrightRecorder, there is no visible highlight or recording badge injected into the recorded page (only a blinking browser tab title).
+
+---
+
+## LocatorBrowserRecorder — Playwright-style alternative (RecorderType.BROWSER_LOCATOR)
+
+This recorder produces Playwright-quality, accessibility-aware selectors and emits structured `ElementLocatorSpec[]` objects instead of CSS strings. It is intended to eventually replace the legacy `BrowserRecorder`.
+
+| File                                        | Role                                                                                      |
+|---------------------------------------------|-------------------------------------------------------------------------------------------|
+| `src/background/LocatorBrowserRecorder.ts`  | Background — identical lifecycle to `BrowserRecorder` but registers `locatorRecorder.js` |
+| `src/content/locatorRecorder.js`            | MAIN world — uses `@mizchi/selector-generator` to generate Playwright internal selectors  |
+
+### Pipeline
+
+```
+LocatorBrowserRecorder (background)
+      │ registerPageContentScripts → locatorRecorder.js (MAIN, allFrames)
+      │ injectForegroundScripts   → contentTab.js (ISOLATED, allFrames)
+      ▼
+locatorRecorder.js (each frame, MAIN world)
+      │ exposes window.__loadster_generateLocator(el) => rawSelector
+      │ on click/dblclick/change/select/submit:
+      │   • generateSelector(target) → rawSelector (Playwright internal format)
+      │   • toLocator(rawSelector, 'jsonl') → JSON linked list → ElementLocatorSpec[]
+      │   • walk parent frames via __loadster_generateLocator → framePath
+      │   • dispatch USER_ACTION on window.top
+      ▼
+contentTab.js (ISOLATED) → background → Loadster dashboard
+```
+
+### Event payload (BrowserLocatorEvent)
+
+```typescript
+{
+  timestamp: number;
+  action: 'click' | 'dblclick' | 'change' | 'select' | 'submit';
+  locators: ElementLocatorSpec[];       // primary Playwright locator chain
+  framePath: ElementLocatorSpec[][];    // one chain per ancestor frame, top→child; [] for top frame
+  rawSelector: string;                  // Playwright internal selector (e.g. "internal:role=button[name='OK'i]")
+  value?: string;
+  tagName: string;
+  attrs: Record<string, string>;
+  keyboard: { alt, shift, ctrl, meta };
+  textContent: string;
+  href: string | null;
+}
+```
+
+### What is NOT included (v1)
+
+- Hover recording
+- `recordClickEvents: 'closest'` mode
+- Visual overlay
+- Code generation
+
+### Selector engine activation
+
+`RecorderType.BROWSER_LOCATOR = 'loadster-browser-locator-recorder'` must be sent from the Loadster dashboard at connect time. The background dispatcher (`background.ts`) constructs `LocatorBrowserRecorder` for this type.

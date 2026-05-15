@@ -83,7 +83,8 @@ export default defineConfig({
       additionalInputs: [
         'src/index.html',
         'src/content/contentTab.js',
-        'src/content/windowEventRecorder.js'
+        'src/content/windowEventRecorder.js',
+        'src/content/locatorRecorder.js'
       ]
     })
   ],

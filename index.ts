@@ -24,6 +24,7 @@ export enum RecorderType {
   HTTP = 'loadster-http-recorder',
   BROWSER = 'loadster-browser-recorder',
   PLAYWRIGHT = 'loadster-playwright-recorder',
+  BROWSER_LOCATOR = 'loadster-browser-locator-recorder',
 }
 
 export interface RecordingOptions {
@@ -33,8 +34,8 @@ export interface RecordingOptions {
 }
 
 export interface BrowserRecordingOptions extends RecordingOptions {
-  recordHoverEvents?: boolean;
-  recordClickEvents?: boolean;
+  recordHoverEvents?: 'none' | 'auto' | 'all';
+  recordClickEvents?: 'exact' | 'closest';
   selectorFilters: {
     key: string;
     value: string;
@@ -106,6 +107,7 @@ export interface HttpRecordingEventsData {
 
 export type RecordingEventsDataMap = {
   [RecorderType.BROWSER]: BrowserRecordingEventsData;
+  [RecorderType.BROWSER_LOCATOR]: BrowserRecordingEventsData;
   [RecorderType.PLAYWRIGHT]: PlaywrightRecordingEventsData;
   [RecorderType.HTTP]: HttpRecordingEventsData;
 };

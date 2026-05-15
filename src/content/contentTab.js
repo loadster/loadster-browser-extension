@@ -5,6 +5,7 @@ import browser from 'webextension-polyfill';
 const { RECORDING_STATUS, USER_ACTION, ENDPOINT_PAGE_CONNECT } = RecorderMessageType;
 
 let port;
+let lastStatusMessage = null;
 
 function connect () {
   if (port) {
@@ -28,11 +29,20 @@ function onUserAction (event) {
 
 function forwardPortMessageToPage (message) {
   if (message.type === RECORDING_STATUS) {
+    lastStatusMessage = message;
     window.dispatchEvent(new CustomEvent(RECORDING_STATUS, {
       'detail': createMessage(message.data)
     }));
   }
 }
+
+window.addEventListener('loadster-locator-recorder-ready', () => {
+  if (lastStatusMessage) {
+    window.dispatchEvent(new CustomEvent(RECORDING_STATUS, {
+      'detail': createMessage(lastStatusMessage.data)
+    }));
+  }
+});
 
 function onPageShow (event) {
   if (event.persisted) {
