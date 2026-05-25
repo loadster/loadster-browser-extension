@@ -32,15 +32,6 @@ export interface RecordingOptions {
   newWindow?: boolean;
 }
 
-export interface BrowserRecordingOptions extends RecordingOptions {
-  recordHoverEvents?: 'none' | 'auto' | 'all';
-  recordClickEvents?: 'exact' | 'closest';
-  selectorFilters: {
-    key: string;
-    value: string;
-  }[];
-}
-
 export interface HttpRecordingOptions extends RecordingOptions {
 }
 

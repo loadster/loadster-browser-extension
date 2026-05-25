@@ -4,13 +4,11 @@ import { RecorderType } from '../../index';
 import BrowserRecorder from './BrowserRecorder.js';
 import HttpRecorder from './HttpRecorder.js';
 import PlaywrightRecorder from './PlaywrightRecorder.js';
-import LocatorBrowserRecorder from './LocatorBrowserRecorder.js';
 
 let activeRecorder = null;
 
 // Clean up any stale content script registrations from previous sessions.
 BrowserRecorder.cleanupStaleScripts().then();
-LocatorBrowserRecorder.cleanupStaleScripts().then();
 
 browser.runtime.onConnect.addListener((port) => {
   const config = parseRecorderConfig(port.name);
@@ -18,8 +16,7 @@ browser.runtime.onConnect.addListener((port) => {
   if (config === null) return; // Unknown application
 
   if (RecorderType.BROWSER === config.recorderType) {
-    // activeRecorder = new BrowserRecorder(port);
-    activeRecorder = new LocatorBrowserRecorder(port);
+    activeRecorder = new BrowserRecorder(port);
   } else if (RecorderType.HTTP === config.recorderType) {
     activeRecorder = new HttpRecorder(port);
   } else if (RecorderType.PLAYWRIGHT === config.recorderType) {

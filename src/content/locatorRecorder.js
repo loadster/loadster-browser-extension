@@ -97,7 +97,7 @@ if (!window.loadsterLocatorRecorderLoaded) {
         detail: createMessage({ action: msg.action, data: msg })
       }));
     } catch {
-      // silently swallow — same pattern as windowEventRecorder.js
+      // silently swallow
     }
   }
 }
