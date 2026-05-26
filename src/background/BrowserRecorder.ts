@@ -125,7 +125,8 @@ export default class BrowserRecorder extends Recorder {
         allFrames: true,
         matchAboutBlank: true,
         runAt: 'document_end',
-        world: 'MAIN',
+        // Firefox MV2 contentScripts.register does not support world:'MAIN';
+        // omitting it runs in isolated world which is sufficient for event capture.
       });
 
       // @ts-ignore

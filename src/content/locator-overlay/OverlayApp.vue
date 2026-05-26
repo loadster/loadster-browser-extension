@@ -18,11 +18,10 @@ import HighlightBox from './components/HighlightBox.vue';
 import RecordingBadge from './components/RecordingBadge.vue';
 import ModeToolbar from './components/ModeToolbar.vue';
 import { createSelectorGenerator } from '@mizchi/selector-generator';
-import { createMessage } from '../../utils/messagingUtils.js';
 import { RecorderMessageType } from '../../../index';
-import { adaptSelector, includeElementAttributes } from '../locator-shared/selectorAdapter';
+import { TEST_ID_ATTRIBUTE_NAME, dispatchUserAction, type GenerateSelector } from '../locator-shared/userAction';
 
-const { RECORDING_STATUS, USER_ACTION } = RecorderMessageType;
+const { RECORDING_STATUS } = RecorderMessageType;
 
 const host = inject<HTMLElement>('overlayHost')!;
 
@@ -34,10 +33,8 @@ const hoveredSelector = ref<string | null>(null);
 let lastHoveredEl: Element | null = null;
 let rafPending = false;
 let pendingEl: Element | null = null;
-let generateSelector: ((el: Element, opts: any) => any) | null = null;
+let generateSelector: GenerateSelector | null = null;
 let initialized = false;
-
-const testIdAttributeName = 'data-testid';
 
 function clearHover() {
   hoveredRect.value = null;
@@ -64,7 +61,7 @@ function isSelf(el: EventTarget | null): boolean {
 function computeSelector(el: Element): string | null {
   if (!generateSelector) return null;
   try {
-    return generateSelector(el, { testIdAttributeName }).selector;
+    return generateSelector(el, { testIdAttributeName: TEST_ID_ATTRIBUTE_NAME }).selector;
   } catch {
     return null;
   }
@@ -73,26 +70,7 @@ function computeSelector(el: Element): string | null {
 function emitHoverAction(el: Element) {
   if (!generateSelector) return;
   try {
-    const raw = generateSelector(el, { testIdAttributeName });
-    const locators = adaptSelector(raw.selector);
-    const msg = {
-      timestamp: Date.now(),
-      action: 'hover',
-      locators,
-      value: (el as HTMLInputElement).value,
-      tagName: el.tagName,
-      rawSelector: raw.selector,
-      rawSelectors: raw.selectors,
-      element: raw.selector,
-      selectors: raw.selectors,
-      attrs: includeElementAttributes(el),
-      keyboard: { alt: false, shift: false, ctrl: false, meta: false },
-      textContent: el.textContent,
-      href: (el as HTMLAnchorElement).href || null,
-    };
-    window.top!.dispatchEvent(new CustomEvent(USER_ACTION, {
-      detail: createMessage({ action: msg.action, data: msg })
-    }));
+    dispatchUserAction({ element: el, action: 'hover', generateSelector });
   } catch {}
 }
 
@@ -101,7 +79,7 @@ onMounted(() => {
     const detail = (event as CustomEvent).detail;
     enabled.value = detail.enabled;
     if (detail.enabled && !initialized) {
-      generateSelector = createSelectorGenerator(window, false, 'javascript', testIdAttributeName);
+      generateSelector = createSelectorGenerator(window, false, 'javascript', TEST_ID_ATTRIBUTE_NAME);
       initialized = true;
     }
   });
