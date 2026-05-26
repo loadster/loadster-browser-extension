@@ -124,9 +124,7 @@ export default defineConfig({
         };
       },
       additionalInputs: [
-        'src/index.html',
-        'src/content/contentTab.js',
-        'src/content/locatorRecorder.js'
+        'src/content/locatorRecorder.js',
       ]
     })
   ],

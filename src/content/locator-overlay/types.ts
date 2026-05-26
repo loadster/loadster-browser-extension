@@ -2,7 +2,7 @@ export type Mode = 'record' | 'pick';
 
 declare global {
   interface Window {
-    loadsterLocatorOverlayLoaded: boolean;
+    loadsterContentLoaded: boolean;
     __loadster_destroyOverlay: () => void;
   }
 }

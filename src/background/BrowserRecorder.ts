@@ -10,8 +10,7 @@ const { ENDPOINT_PAGE_CONNECT, NAVIGATE_URL, RECORDING_STATUS, RECORDING_EVENTS,
 const isFirefox = __BROWSER__ === 'firefox';
 
 const SCRIPT_IDS = {
-  recorder: 'loadster-locator-content-scripts',
-  overlay: 'loadster-locator-overlay',
+  recorder: 'loadster-locator-recorder',
 };
 
 export default class BrowserRecorder extends Recorder {
@@ -20,7 +19,7 @@ export default class BrowserRecorder extends Recorder {
   static async cleanupStaleScripts() {
     if (browser.runtime.getManifest().manifest_version === 3) {
       try {
-        await browser.scripting.unregisterContentScripts({ ids: Object.values(SCRIPT_IDS) });
+        await browser.scripting.unregisterContentScripts();
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
         // Scripts weren't registered, that's fine
@@ -102,14 +101,7 @@ export default class BrowserRecorder extends Recorder {
     const excludeMatches = ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*'];
 
     if (manifest_version === 3) {
-      try {
-        await browser.scripting.unregisterContentScripts({
-          ids: Object.values(SCRIPT_IDS)
-        });
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (e: any) {
-        // Scripts weren't registered, that's fine
-      }
+      await BrowserRecorder.cleanupStaleScripts();
 
       await browser.scripting.registerContentScripts([
         {
@@ -121,16 +113,6 @@ export default class BrowserRecorder extends Recorder {
           matchOriginAsFallback: true,
           runAt: 'document_end',
           world: 'MAIN',
-        },
-        {
-          matches: ['*://*/*'],
-          excludeMatches,
-          js: ['src/content/locator-overlay/index.js'],
-          id: SCRIPT_IDS.overlay,
-          allFrames: false,
-          matchOriginAsFallback: true,
-          runAt: 'document_end',
-          world: 'ISOLATED',
         },
       ]);
     } else {
@@ -146,19 +128,8 @@ export default class BrowserRecorder extends Recorder {
         world: 'MAIN',
       });
 
-      const overlayScript = await browser.contentScripts.register({
-        matches: ['*://*/*'],
-        excludeMatches,
-        js: [{
-          file: 'src/content/locator-overlay/index.js'
-        }],
-        allFrames: false,
-        matchAboutBlank: false,
-        runAt: 'document_end',
-      });
-
       // @ts-ignore
-      this.registeredScripts.push(recorderScript, overlayScript);
+      this.registeredScripts.push(recorderScript);
     }
   }
 
@@ -189,11 +160,11 @@ export default class BrowserRecorder extends Recorder {
       if (manifest_version === 3) {
         await browser.scripting.executeScript({
           target: { tabId, allFrames: true },
-          files: ['src/content/contentTab.js']
+          files: ['src/content/locator-overlay/index.js']
         });
       } else {
         await browser.tabs.executeScript(tabId, {
-          file: 'src/content/contentTab.js',
+          file: 'src/content/locator-overlay/index.js',
           allFrames: true,
           runAt: 'document_start'
         });
@@ -214,11 +185,11 @@ export default class BrowserRecorder extends Recorder {
       if (manifest_version === 3) {
         await browser.scripting.executeScript({
           target: { tabId, frameIds: [frameId] },
-          files: ['src/content/contentTab.js']
+          files: ['src/content/locator-overlay/index.js']
         });
       } else {
         await browser.tabs.executeScript(tabId, {
-          file: 'src/content/contentTab.js',
+          file: 'src/content/locator-overlay/index.js',
           frameId,
           runAt: 'document_start'
         });
