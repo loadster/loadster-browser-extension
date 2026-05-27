@@ -20,7 +20,6 @@
     "build-chrome": "cross-env TARGET=chrome vite build",
     "build-firefox": "cross-env TARGET=firefox vite build",
     "prebuild": "npm run bundle-playwright && node scripts/bundle-overlay.mjs",
-    "fetch-playwright": "node scripts/fetch-playwright.js",
     "bundle-playwright": "node scripts/bundle-playwright.mjs",
     "lint": "eslint . --fix",
     "tsx": "tsc --noEmit"
