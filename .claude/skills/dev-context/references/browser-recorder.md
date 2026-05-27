@@ -5,7 +5,7 @@ Use it as a reference for maintenance, debugging, and future changes.
 
 ## Overview
 
-The BrowserRecorder captures user interactions (clicks, form changes, navigation) and generates structured Loadster browser step events in real time. Unlike the PlaywrightRecorder, it works in both **Chrome and Firefox** because it does not rely on CDP — only standard WebExtension APIs plus `@mizchi/selector-generator` for Playwright-quality, accessibility-aware selectors. The recorder emits structured `ElementLocatorSpec[]` locator chains instead of CSS strings.
+The BrowserRecorder captures user interactions (clicks, form changes, navigation) and generates structured Loadster browser step events in real time. Unlike the PlaywrightRecorder, it works in both **Chrome and Firefox** — no CDP, only standard WebExtension APIs. It uses Playwright's own `InjectedScript` (the same engine used by `playwright codegen`) via `locator-shared/injectedScriptFactory.ts`, and emits structured `ElementLocatorSpec[]` locator chains.
 
 ### Pipeline overview
 
@@ -17,28 +17,27 @@ BrowserRecorder (background)
 locatorRecorder.js (each frame, MAIN world)
       │ exposes window.__loadster_generateLocator(el) → rawSelector
       │ on click/dblclick/change/select/submit:
-      │   • generateSelector(target) → { selector, selectors }
-      │   • buildFramePath() → frameLocator steps from ancestor frames
-      │   • locators = [...framePath.flat(), ...adaptSelector(rawSelector)]
-      │   • dispatch USER_ACTION CustomEvent on window.top
+      │   • createSelectorGenerator(window, { testIdAttributeName }) → generateSelector
+      │   • buildFramePath() from locator-shared/userAction.ts
+      │   • dispatchUserAction({ element, action, generateSelector, framePath, keyboard })
+      │     → USER_ACTION CustomEvent on window.top
       ▼
 locator-overlay/index.js (ISOLATED, each frame)
       │ port.postMessage(USER_ACTION) → background
       │ port.onMessage(RECORDING_STATUS) → CustomEvent on window
-      │ [top frame only] mounts Vue 3 OverlayApp into closed Shadow DOM
+      │ [top frame only] mounts OverlayApp via mountShadowOverlay() into closed Shadow DOM
       ▼
 BrowserRecorder.setupPageContentPort → uploadBrowserEvent → RECORDING_EVENTS → Loadster dashboard
 ```
 
 ### Recording Overlay
 
-The overlay runs in the same ISOLATED-world script as the port bridge, top frame only. It provides a visual recording indicator and a "pick mode" for selecting elements without triggering real clicks.
+Top frame only. `OverlayApp` provides a draggable recording panel and a pick mode for selecting elements without triggering real clicks.
 
 ```
-locator-overlay/index.js (ISOLATED, top frame only — overlay section)
-      │ mounts Vue 3 OverlayApp into closed Shadow DOM
-      │ record mode: RecordingBadge + ModeToolbar visible
-      │ pick mode:   HighlightBox tracks cursor; click → emitHoverAction (not a real click)
+locator-overlay/OverlayApp.vue (ISOLATED, top frame only)
+      │ record mode: OverlayPanel (RecordingBadge + ModeToolbar) visible
+      │ pick mode:   HighlightBox tracks cursor; click → dispatchUserAction({ action: 'hover' })
       ▼
 USER_ACTION CustomEvent (action: 'hover') → port → background → dashboard
 ```
@@ -51,25 +50,28 @@ USER_ACTION CustomEvent (action: 'hover') → port → background → dashboard
 | `src/background/Recorder.ts` | Base class — port/tabIds/options/title-blink/PING-PONG |
 | `src/background/background.ts` | Factory: `RecorderType.BROWSER` → `new BrowserRecorder(port)` |
 | `src/content/locatorRecorder.js` | MAIN-world recorder, all frames; exposes `window.__loadster_generateLocator` |
-| `src/content/locator-overlay/index.ts` | ISOLATED-world overlay + port bridge; Vue overlay on top frame, port bridge in every frame |
+| `src/content/locator-overlay/index.ts` | ISOLATED-world port bridge + overlay mount; Vue overlay on top frame only |
 | `src/content/locator-overlay/OverlayApp.vue` | Root overlay component; record/pick modes |
-| `src/content/locator-overlay/components/HighlightBox.vue` | Hover rect + selector label |
-| `src/content/locator-overlay/components/ModeToolbar.vue` | Mode switcher buttons |
-| `src/content/locator-overlay/components/RecordingBadge.vue` | Pulsing dot + status text |
-| `src/content/locator-overlay/styles.css` | Overlay styles, `__ls_pulse__` animation, Overpass font rules |
-| `src/content/locator-shared/selectorAdapter.ts` | `adaptSelector()` + `includeElementAttributes()`; JSONL node-chain → `ElementLocatorSpec[]` |
+| `src/content/locator-overlay/types.ts` | `Mode = 'record' \| 'pick'`; `loadsterContentLoaded`/`__loadster_destroyOverlay` window declarations |
+| `src/content/locator-shared/injectedScriptFactory.ts` | `createSelectorGenerator(win, opts)` — wraps Playwright `InjectedScript` |
+| `src/content/locator-shared/userAction.ts` | `dispatchUserAction`, `buildFramePath`, `TEST_ID_ATTRIBUTE_NAME` |
+| `src/content/locator-shared/selectorAdapter.ts` | `adaptSelector()` + `includeElementAttributes()`; Playwright selector string → `ElementLocatorSpec[]` |
+| `src/content/locator-shared/globals.d.ts` | MAIN-world window flag types (`loadsterLocatorRecorderLoaded`, `__loadster_generateLocator`) |
+| `src/content/overlay-shared/shadowMount.ts` | `mountShadowOverlay({ rootComponent, provides })` — shadow host + closed shadow root + Vue app; provides `'overlayHost'` |
+| `src/content/overlay-shared/fonts.ts` | `fontFaceCSS` — Overpass @font-face rules (weights 300/400/600/800) |
+| `src/content/overlay-shared/styles.css` | All overlay styles: panel, badge, toolbar, highlight-box, `__ls_pulse__` keyframes |
+| `src/content/overlay-shared/types.ts` | `ModeDef { id: string; label: string }` |
+| `src/content/overlay-shared/composables/useDraggable.ts` | Pointer-based drag for the panel; clamps to viewport |
+| `src/content/overlay-shared/components/HighlightBox.vue` | Hover rect + selector label (pick mode) |
+| `src/content/overlay-shared/components/ModeToolbar.vue` | Mode switcher buttons |
+| `src/content/overlay-shared/components/OverlayPanel.vue` | Draggable panel: RecordingBadge + separator + ModeToolbar + grip |
+| `src/content/overlay-shared/components/RecordingBadge.vue` | Pulsing dot + status text |
 | `src/content/loadsterBridge.ts` | Dashboard-side bridge — opens port via `BridgeEvent.CONNECT` |
 | `index.ts` | `BridgeEvent`, `RecorderMessageType`, `RecorderType` enums + shared types |
 
 ## Content Script Injection
 
-`BrowserRecorder` registers one persistent dynamic content script via `SCRIPT_IDS`:
-
-```typescript
-const SCRIPT_IDS = {
-  recorder: 'loadster-locator-content-scripts',
-};
-```
+`BrowserRecorder` uses `pageContentScriptId = 'loadster-locator-recorder'` for the persistent dynamic content script.
 
 **MV3 (Chrome)** — `browser.scripting.registerContentScripts`:
 
@@ -77,40 +79,31 @@ const SCRIPT_IDS = {
 |---|---|---|---|---|---|
 | recorder | `src/content/locatorRecorder.js` | `MAIN` | `true` | `document_end` | `true` |
 
-**MV2 (Firefox)** — `browser.contentScripts.register`: same file and `allFrames` value; no `world` field (recorder sets `world: 'MAIN'`).
+**MV2 (Firefox)** — `browser.contentScripts.register`: same file and `allFrames`; no `world` field (isolated world is sufficient for event capture on Firefox MV2).
 
-Both scripts use `excludeMatches: ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*']`.
+Both use `excludeMatches: ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*']`.
 
-`locator-overlay/index.js` is **not** registered persistently — it is injected dynamically into tracked tabs on each navigation commit via `injectForegroundScripts` (all frames) and `injectSubFrameScript` (single sub-frame). See [Navigation Handling](#navigation-handling).
+`locator-overlay/index.js` is **not** registered persistently — injected dynamically into tracked tabs on each navigation commit via `injectForegroundScripts` (all frames) and `injectSubFrameScript` (single sub-frame).
 
-`BrowserRecorder.cleanupStaleScripts()` is a static method called at background startup to unregister any leftover scripts from a previous service-worker cycle (MV3 only). It also removes the legacy overlay ID `'loadster-locator-overlay'` to clean up registrations from older extension versions.
+`BrowserRecorder.cleanupStaleScripts()` is a static method called at background startup to unregister any leftover scripts from a previous service-worker cycle (MV3 only).
 
 ## Why Two Content Scripts?
 
-DOM event listeners and `window.__loadster_generateLocator` must run in the **MAIN world** to access the real page DOM and share `window` with the page's own scripts. However, MAIN-world scripts have no access to `browser.runtime` — no ports, no messaging.
-
-`locator-overlay/index.js` runs in the **ISOLATED world**, where `browser.runtime.connect()` is available. It acts as the relay between the MAIN-world recorder and the background service worker, and also owns the Vue overlay UI on the top frame.
+DOM event listeners and `window.__loadster_generateLocator` must run in the **MAIN world** to access the real page DOM. ISOLATED-world scripts can't access MAIN-world globals but do have `browser.runtime.connect()` — so `locator-overlay/index.ts` acts as the port relay and mounts the Vue overlay.
 
 ## Port Bridge (overlay module)
 
 On injection, `locator-overlay/index.ts` calls `connect()`:
 
-1. Opens a port to the background: `browser.runtime.connect({ name: JSON.stringify({ endpointName: ENDPOINT_PAGE_CONNECT }) })`
-2. The background routes this to `BrowserRecorder.setupPageContentPort(port)`, establishing `this.pagePort`
-3. Listens for `USER_ACTION` CustomEvents on `window` and forwards them: `port.postMessage({ type: USER_ACTION, data: event.detail })`
-4. Listens on `port.onMessage` for `RECORDING_STATUS` messages — dispatches them as CustomEvents to `window` AND caches the last one in `lastStatusMessage`
+1. Opens a port: `browser.runtime.connect({ name: JSON.stringify({ endpointName: ENDPOINT_PAGE_CONNECT }) })` → routes to `BrowserRecorder.setupPageContentPort(port)`.
+2. Listens for `USER_ACTION` CustomEvents on `window` and forwards them over the port.
+3. Listens on `port.onMessage` for `RECORDING_STATUS` — dispatches as CustomEvents on `window` and caches the last one in `lastStatusMessage`.
 
-**Replay-last-status:** `locatorRecorder.js` (MAIN) may load after the initial status was sent. The overlay module listens for one custom event and replays `lastStatusMessage` when it fires:
+**Replay-last-status:** `locatorRecorder.js` (MAIN) may load after the initial status was sent. The overlay listens for `loadster-locator-recorder-ready` and replays `lastStatusMessage` when it fires. `replayLastStatus()` is also called directly after mounting the Vue overlay so it activates immediately.
 
-```javascript
-window.addEventListener('loadster-locator-recorder-ready', replayLastStatus);
-```
+**BFCache handling:** A `pageshow` listener reconnects the port when `event.persisted === true`.
 
-After mounting the Vue overlay (top frame only), `replayLastStatus()` is also called directly in-process so the overlay activates immediately if a status was already received.
-
-**BFCache handling:** A `pageshow` listener detects restoration from the back/forward cache (`event.persisted === true`) and calls `connect()` again since the old port is dead.
-
-**Double-injection guard:** `window.loadsterContentLoaded` flag prevents re-initialization if the script is injected multiple times into the same frame.
+**Double-injection guard:** `window.loadsterContentLoaded` prevents re-initialization if the script is injected multiple times into the same frame.
 
 ## Event Recording (MAIN world)
 
@@ -118,25 +111,36 @@ After mounting the Vue overlay (top frame only), `replayLastStatus()` is also ca
 
 **Init guard:** `window.loadsterLocatorRecorderLoaded` prevents double-initialization.
 
-**Startup:** Dispatches `loadster-locator-recorder-ready` immediately so the overlay module can replay the last `RECORDING_STATUS` to this frame.
+**Startup:** Dispatches `loadster-locator-recorder-ready` immediately after registering the `RECORDING_STATUS` listener. The ordering matters for Firefox isolated-world where the overlay's `replayLastStatus()` dispatch is synchronous.
 
 **Activation:** On the first `RECORDING_STATUS` CustomEvent with `enabled: true`:
 
-1. Creates `generateSelector = createSelectorGenerator(window, false, 'javascript', 'data-testid')`
-2. Exposes `window.__loadster_generateLocator(el)` — used by child frames when building their frame path
-3. Attaches listeners for `['click', 'dblclick', 'change', 'select', 'submit']`
+1. Creates `generateSelector = createSelectorGenerator(window, { testIdAttributeName: TEST_ID_ATTRIBUTE_NAME })` from `locator-shared/injectedScriptFactory.ts`.
+2. Exposes `window.__loadster_generateLocator(el)` — used by child frames when building their frame path.
+3. Attaches listeners for `EVENTS = ['click', 'dblclick', 'change', 'select', 'submit']`.
 
 The `initialized` flag prevents duplicate listener registration if recording is stopped and re-enabled.
 
+Each event calls `dispatchUserAction({ element, action, generateSelector, framePath, keyboard })` from `locator-shared/userAction.ts`. The function builds the full event payload and dispatches a `USER_ACTION` CustomEvent **always on `window.top`** so iframe events reach the top-frame port bridge.
+
 ## Selector Generation
 
-The selector pipeline uses `@mizchi/selector-generator` (^1.50.0-next):
+`createSelectorGenerator(win, { testIdAttributeName })` from `locator-shared/injectedScriptFactory.ts` instantiates Playwright's `InjectedScript` class:
 
-1. `createSelectorGenerator(window, false, 'javascript', 'data-testid')` returns a `generateSelector(el, opts)` function.
-2. Calling `generateSelector(el, { testIdAttributeName: 'data-testid' })` returns `{ selector, selectors }` where `selector` is a Playwright internal selector string (e.g. `"internal:role=button[name='Submit'i]"`).
-3. `adaptSelector(rawSelector)` in `src/content/locator-shared/selectorAdapter.ts` converts this to an `ElementLocatorSpec[]`:
-   - Calls `toLocator(rawSelector, 'jsonl')` → a JSON linked-list string
-   - Walks `node.next` chain, mapping each `{ kind, body, options }` via `nodeToSpec`:
+```typescript
+new InjectedScriptCtor(win, {
+  sdkLanguage: 'javascript', testIdAttributeName, browserName: 'chromium',
+  stableRafCount: 1, isUtilityWorld: false, customEngines: [],
+})
+```
+
+`InjectedScriptCtor` is imported from `src/generated/playwright-injected-ctor.js` — a build artifact that inlines the `injectedScriptSource` IIFE as ordinary module code (avoiding the extension CSP's ban on `eval`/`new Function`).
+
+Calling `generateSelector(el, { testIdAttributeName })` returns `{ selector, selectors }` where `selector` is a Playwright internal selector string (e.g. `"internal:role=button[name='Submit'i]"`).
+
+`adaptSelector(rawSelector)` in `src/content/locator-shared/selectorAdapter.ts` converts this to an `ElementLocatorSpec[]`:
+- Calls `asLocator('jsonl', rawSelector)` from `playwright-codegen.js` → JSONL string
+- Walks the linked-list chain, mapping each `{ kind, body, options }` via `nodeToSpec`:
 
 | `kind` | `ElementLocatorSpec.method` |
 |---|---|
@@ -153,81 +157,61 @@ The selector pipeline uses `@mizchi/selector-generator` (^1.50.0-next):
 | `frame-locator` | `frameLocator` |
 | _(default)_ | `locator` |
 
-If `toLocator` or JSON parsing fails, falls back to `[{ method: 'locator', selector: rawSelector }]`.
+Falls back to `[{ method: 'locator', selector: rawSelector }]` on parse error.
 
-**Two independent instances:** The overlay (`OverlayApp.vue`) creates its own `generateSelector` via `createSelectorGenerator` on first enable. It cannot share the MAIN-world instance from `locatorRecorder.js` because ISOLATED and MAIN worlds do not share a `window` object.
+**Two independent instances:** The overlay (`OverlayApp.vue`) creates its own `generateSelector` via `createSelectorGenerator` on first enable. ISOLATED and MAIN worlds don't share a `window`, so they can't share the same instance.
 
 ## Recording Overlay (ISOLATED world)
 
-`src/content/locator-overlay/index.ts` mounts when `window === window.top` and `window.loadsterContentLoaded` has not been set (also covered by allFrames injection — only the top frame mounts).
+`locator-overlay/index.ts` mounts when `window === window.top` and `window.loadsterContentLoaded` is not set.
 
 **Setup:**
 
-1. Creates a fixed-position `<div>` host (`zIndex: '2147483646'`, `pointerEvents: 'none'`)
-2. Attaches a **closed** Shadow DOM (inaccessible from the page's JS)
-3. Inlines `styles.css` + Overpass font `@font-face` rules into the shadow root
-4. Mounts Vue 3 `OverlayApp` via `createApp(...).mount(mountPoint)` (Vue calls `onMounted` synchronously during `mount()`)
-5. Registers `window.__loadster_destroyOverlay()` — unmounts the app, removes the host, disconnects the port, resets `loadsterContentLoaded`
-6. Calls `replayLastStatus()` directly after mount so the overlay activates immediately if a `RECORDING_STATUS` was already received before mount
+1. Calls `mountShadowOverlay({ rootComponent: OverlayApp })` from `overlay-shared/shadowMount.ts`. This helper creates a fixed-position host `<div>` (`z-index: 2147483646`, `pointer-events: none`), attaches a closed shadow root, injects `fontFaceCSS + overlayStyles` into it, mounts the Vue app with `'overlayHost'` provided, and returns a `destroy()` closure.
+2. Registers `window.__loadster_destroyOverlay()` — calls `destroy()`, disconnects the port, resets `loadsterContentLoaded`.
+3. Calls `replayLastStatus()` directly after mount so the overlay activates immediately if a status was already received.
 
-**Components:**
+**Components (from `overlay-shared/components/`):**
 
 - `HighlightBox.vue` — positions a highlight rect + selector label over the hovered element (pick mode only)
-- `RecordingBadge.vue` — pulsing dot indicator with "Recording" / "Pick mode" text
+- `OverlayPanel.vue` — draggable panel that composes `RecordingBadge` + separator + `ModeToolbar` with a `⠿` grip handle wired to `useDraggable`
+- `RecordingBadge.vue` — pulsing dot indicator with configurable label text
 - `ModeToolbar.vue` — buttons to switch between `record` and `pick` modes
 
 **Modes (`type Mode = 'record' | 'pick'`):**
 
-- `record`: badge and toolbar visible; all DOM events pass through normally
-- `pick`: additionally shows `HighlightBox`; click captures the element without triggering the real click (see [Pick Mode](#pick-mode-hover-recording))
+- `record`: panel visible; all DOM events pass through normally
+- `pick`: additionally shows `HighlightBox`; click captures the element without triggering the real click
 
-The `isSelf(el)` guard (`el === host || host.contains(el)`) prevents the overlay from responding to its own shadow elements.
+The `isSelf(el)` guard prevents the overlay from responding to its own shadow elements.
 
 ## Pick Mode (Hover Recording)
 
 In `pick` mode, `OverlayApp.vue` intercepts mouse events at the document level (capture phase):
 
-- **`mousemove`** — debounced with `requestAnimationFrame`; updates `hoveredRect` and `hoveredSelector` for `HighlightBox` display. Listeners are `{ capture: true, passive: true }` for performance.
+- **`mousemove`** — debounced with `requestAnimationFrame`; updates `hoveredRect` and `hoveredSelector`. Listeners are `{ capture: true, passive: true }`.
 - **`mouseleave`** — clears the hover highlight.
 - **`click`** — calls `e.stopPropagation()` + `e.preventDefault()` to suppress the real click, then calls `emitHoverAction(el)`:
-  - Generates selector with the overlay's own `generateSelector` instance
-  - Dispatches a `USER_ACTION` CustomEvent on `window.top` with `action: 'hover'`
-  - Payload matches the standard browser event format (see [Event Upload Format](#event-upload-format))
+  - Calls `dispatchUserAction({ element: el, action: 'hover', generateSelector })` (no framePath/keyboard)
 - **`keydown` Escape** — exits `pick` back to `record` mode.
-
-This replaces v1's passive hover tracking with an explicit, click-triggered element picker that avoids interfering with hover-triggered UI.
 
 ## Frame Support
 
 `locatorRecorder.js` runs in all frames (`allFrames: true`). Each frame exposes its own `window.__loadster_generateLocator`.
 
-When `recordEvent` fires inside an iframe, `buildFramePath()` walks up the frame hierarchy:
+When `recordEvent` fires inside an iframe, `buildFramePath()` from `locator-shared/userAction.ts` walks up the frame hierarchy:
+- For each step, calls `parent.__loadster_generateLocator(frameElement)` to get the iframe's selector
+- Stops if `cur.frameElement` is `null` (cross-origin boundary) or the parent lacks the locator helper
+- Returns the path reversed to top→child order
 
+`dispatchUserAction` flattens the frame path in front of the element's locator chain:
 ```javascript
-function buildFramePath() {
-  const path = [];
-  let cur = window;
-  while (cur !== cur.top) {
-    const frameEl = cur.frameElement;
-    if (!frameEl || typeof cur.parent.__loadster_generateLocator !== 'function') break;
-    const sel = cur.parent.__loadster_generateLocator(frameEl);
-    if (!sel) break;
-    path.push([{ method: 'frameLocator', selector: sel }]);
-    cur = cur.parent;
-  }
-  return path.reverse(); // collected child→top, returned top→child
-}
+locators = [...framePath.flat(), ...adaptSelector(raw.selector)]
 ```
 
-The resulting frame path is flattened and prepended to the element's own locator chain:
+`locators` is a single flat `ElementLocatorSpec[]` — there is no separate `framePath` field in the event payload.
 
-```javascript
-const locators = [...framePath.flat(), ...adaptSelector(raw.selector)];
-```
-
-`locators` is a single flat `ElementLocatorSpec[]` that includes both the frame-locator steps and the element locators — there is no separate `framePath` field in the event payload.
-
-**Cross-origin frames:** `cur.frameElement` returns `null` when crossing an origin boundary; the walk stops and the frame context is lost (locators contain element steps only, with no frame prefix).
+**Cross-origin frames:** `cur.frameElement` returns `null` when crossing an origin boundary; the walk stops and the frame context is lost.
 
 ## Navigation Handling
 
@@ -236,19 +220,19 @@ const locators = [...framePath.flat(), ...adaptSelector(raw.selector)];
 | Condition | Action |
 |---|---|
 | Firefox (all frames) OR `frameType === 'outermost_frame'` | `injectForegroundScripts(tabId)` — (re-)injects `locator-overlay/index.js` into all frames, then calls `updateWindowsRecordingStatus()` |
-| `frameType === 'sub_frame'` | `injectSubFrameScript(tabId, frameId)` — injects `locator-overlay/index.js` into that single sub-frame only |
+| `frameType === 'sub_frame'` | `injectSubFrameScript(tabId, frameId)` — injects into that single sub-frame only |
 | `transitionType === 'typed'` | Records a `navigate` browser event |
 | `transitionType === 'link'` + `forward_back` qualifier | Records a `navigate` browser event |
 
-`injectForegroundScripts` also sends a `RECORDING_TRACKING` message (`type: 'inject-content-script'`) to the dashboard for diagnostic purposes.
+`injectForegroundScripts` also sends a `RECORDING_TRACKING` message (`type: 'inject-content-script'`) to the dashboard.
 
 ## Tab Tracking
 
-`onCreatedTab` override: when a new tab is opened from a tracked tab, `stopBlinkingTitle()` is called, `tabIds` is cleared, and only the new tab's ID is added. The recorder follows the user into the new tab and stops tracking the previous one.
+`onCreatedTab` override: when a new tab is opened from a tracked tab, `stopBlinkingTitle()` is called, `tabIds` is cleared, and only the new tab's ID is added. The recorder follows the user into the new tab.
 
 ## Event Upload Format
 
-Each user interaction recorded by `locatorRecorder.js` (or the overlay's `emitHoverAction`) produces this payload inside `USER_ACTION`:
+Each user interaction produces this payload inside `USER_ACTION` (built by `dispatchUserAction` in `locator-shared/userAction.ts`):
 
 ```typescript
 {
@@ -258,73 +242,42 @@ Each user interaction recorded by `locatorRecorder.js` (or the overlay's `emitHo
   value?: string;                    // element.value (inputs, selects)
   tagName: string;                   // element.tagName
   rawSelector: string;               // best Playwright internal selector string
-  rawSelectors: string[];            // all candidate selectors from @mizchi/selector-generator
+  rawSelectors: string[];            // all candidate selectors
   element: string;                   // alias for rawSelector (backwards compat)
   selectors: string[];               // alias for rawSelectors (backwards compat)
-  attrs: Record<string, string>;     // all element attributes serialised by includeElementAttributes()
-  keyboard: {
-    alt: boolean;
-    shift: boolean;
-    ctrl: boolean;
-    meta: boolean;
-  };
+  attrs: Record<string, string>;     // all element attributes via includeElementAttributes()
+  keyboard: { alt, shift, ctrl, meta: boolean };
   textContent: string;
-  href: string | null;               // element.href or null
+  href: string | null;
 }
 ```
 
-`BrowserRecorder.uploadBrowserEvent` wraps the event in a `BrowserEvent` envelope keyed by a generated ID and sends it as `RECORDING_EVENTS` to the dashboard.
+`BrowserRecorder.uploadBrowserEvent` wraps the event in a `BrowserEvent` envelope keyed by a generated ID and sends it as `RECORDING_EVENTS`.
 
 ## Dashboard Bridge
 
-`src/content/loadsterBridge.ts` is a content script injected into the Loadster dashboard origin (via manifest `content_scripts`). It is the entry point for the entire recording session:
+`src/content/loadsterBridge.ts` is a content script injected into the Loadster dashboard origin. It:
 
-1. On load, dispatches `BridgeEvent.READY` so the dashboard knows the extension is present
-2. Listens for `BridgeEvent.CONNECT` CustomEvent on `window`; the event's `detail.name` carries the `RecorderType`
-3. Calls `browser.runtime.connect({ name: JSON.stringify({ recorderType }) })` → `background.ts` matches `recorderType === RecorderType.BROWSER` → creates `new BrowserRecorder(port)`
-4. Relays port messages to the dashboard (as CustomEvents on `window`): `RECORDING_EVENTS`, `RECORDING_STOP`, `PONG`, `RECORDING_TRACKING`
-5. Relays dashboard commands to the background port: `BridgeEvent.SEND` → `port.postMessage(event.detail)`, `BridgeEvent.STOP` → `port.postMessage(RECORDING_STOP)`
-6. On port connect: dispatches `BridgeEvent.CONNECTED`; on port disconnect: dispatches `BridgeEvent.DISCONNECTED`
+1. Dispatches `BridgeEvent.READY` on load.
+2. Listens for `BridgeEvent.CONNECT` — calls `browser.runtime.connect({ name: JSON.stringify({ recorderType }) })` → `background.ts` creates `new BrowserRecorder(port)`.
+3. Relays port messages to the dashboard (as CustomEvents): `RECORDING_EVENTS`, `RECORDING_STOP`, `PONG`, `RECORDING_TRACKING`.
+4. Relays dashboard commands to the port: `BridgeEvent.SEND` → `port.postMessage`, `BridgeEvent.STOP` → `port.postMessage(RECORDING_STOP)`.
+
+## Window Flags
+
+| Flag | World | Set by | Purpose |
+|---|---|---|---|
+| `loadsterLocatorRecorderLoaded` | MAIN | `locatorRecorder.js` | Prevents double-initialization |
+| `__loadster_generateLocator(el)` | MAIN | `locatorRecorder.js` | Cross-frame iframe locator helper |
+| `loadsterContentLoaded` | ISOLATED | `locator-overlay/index.ts` | Prevents double-injection of bridge+overlay |
+| `__loadster_destroyOverlay()` | ISOLATED | `locator-overlay/index.ts` | Explicit teardown (top frame only) |
 
 ## Constants Reference
 
-All enums are defined in `index.ts` (repo root).
-
-**`BridgeEvent`** — CustomEvent names on the Loadster dashboard `window`:
-
-| Key | Value |
-|---|---|
-| `CONNECT` | `'loadster_connect_extension'` |
-| `CONNECTED` | `'loadster_connected_extension'` |
-| `DISCONNECTED` | `'loadster_disconnected_extension'` |
-| `SEND` | `'loadster_post_message'` |
-| `STOP` | `'loadster_stop_recording'` |
-| `READY` | `'loadster_recorder_ready'` |
-| `PING` / `PONG` | `'Ping'` / `'Pong'` |
-
-**`RecorderMessageType`** — port message types between background, content scripts, and dashboard:
-
-| Key | Value |
-|---|---|
-| `RECORDING_STATUS` | `'loadster_recording_status'` |
-| `RECORDING_EVENTS` | `'RecordingEvents'` |
-| `RECORDING_STOP` | `'RecordingStop'` |
-| `NAVIGATE_URL` | `'Url'` |
-| `USER_ACTION` | `'loadster_user_action'` |
-| `OPTIONS` | `'loadster_recording_options'` |
-| `RECORDING_TRACKING` | `'loadster_recording_tracking'` |
-| `ENDPOINT_PAGE_CONNECT` | `'loadster-browser-recorder-tab'` |
-
-**`RecorderType`** — used as `recorderType` in `BridgeEvent.CONNECT` and the `background.ts` factory:
-
-| Key | Value |
-|---|---|
-| `BROWSER` | `'loadster-browser-recorder'` |
-| `PLAYWRIGHT` | `'loadster-playwright-recorder'` |
-| `HTTP` | `'loadster-http-recorder'` |
+All enums are defined in `index.ts` (repo root): `BridgeEvent` (dashboard CustomEvent names), `RecorderMessageType` (port message types between background/content/dashboard), `RecorderType` (recorder factory keys).
 
 ## Known Limitations and TODOs
 
 - **Cross-origin iframes:** `buildFramePath()` stops at origin boundaries; actions from cross-origin iframes carry no frame-locator prefix.
 - **Overlay pick mode top-frame only:** The overlay runs only on the top frame. There is no pick mode for selecting elements inside iframes.
-- **`testIdAttributeName` is hardcoded:** `'data-testid'` is the test ID attribute name in both `locatorRecorder.js` and `OverlayApp.vue`. A user preference mechanism is noted in `locatorRecorder.js:16`.
+- **`testIdAttributeName` is hardcoded:** `TEST_ID_ATTRIBUTE_NAME = 'data-testid'` in `locator-shared/userAction.ts`. A user preference mechanism is noted in `locatorRecorder.js`.
