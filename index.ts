@@ -32,6 +32,9 @@ export interface RecordingOptions {
   newWindow?: boolean;
 }
 
+export interface BrowserRecordingOptions extends RecordingOptions {
+}
+
 export interface HttpRecordingOptions extends RecordingOptions {
 }
 
