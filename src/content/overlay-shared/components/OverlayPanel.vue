@@ -2,6 +2,8 @@
   <div
     ref="panelRef"
     class="panel"
+    @mousedown.prevent.stop
+    @pointerdown.stop
     :style="pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto' } : {}"
   >
     <div class="grip" @pointerdown="onGripDown">⠿</div>

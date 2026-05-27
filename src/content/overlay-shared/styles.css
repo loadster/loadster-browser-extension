@@ -91,10 +91,13 @@
 
 .highlight-box {
   position: fixed;
+  top: 0;
+  left: 0;
   pointer-events: none;
   z-index: 2147483646;
   box-sizing: border-box;
   border-radius: 2px;
+  will-change: transform;
 }
 .highlight-box.record       { outline: 2px solid var(--ls-accent-record); background: rgba(0,200,200,0.08); }
 .highlight-box:not(.record) { outline: 2px solid var(--ls-accent-mode); background: rgba(213,248,61,0.08); }
