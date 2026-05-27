@@ -11,7 +11,6 @@ declare global {
   }
 }
 
-
 export interface OverlayState {
   mode: Mode;
   hoveredRect: DOMRect | null;

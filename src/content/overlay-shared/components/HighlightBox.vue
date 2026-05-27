@@ -10,11 +10,9 @@
 </template>
 
 <script setup lang="ts">
-import type { Mode } from '../types.ts';
-
 defineProps<{
   rect: DOMRect | null;
   selector: string | null;
-  mode: Mode;
+  mode: string;
 }>();
 </script>

@@ -6,20 +6,29 @@
       :selector="hoveredSelector"
       :mode="mode"
     />
-    <RecordingBadge :mode="mode" />
-    <ModeToolbar v-model="mode" />
+    <OverlayPanel :mode="mode" :modes="MODES" :badge-label="badgeLabel" @update:mode="mode = $event as Mode" />
   </template>
 </template>
 
 <script setup lang="ts">
-import { inject, onMounted, ref, watch } from 'vue';
+import { inject, onMounted, ref, computed, watch } from 'vue';
 import type { Mode } from './types.ts';
-import HighlightBox from './components/HighlightBox.vue';
-import RecordingBadge from './components/RecordingBadge.vue';
-import ModeToolbar from './components/ModeToolbar.vue';
-import { createSelectorGenerator } from '../locator-shared/injectedScriptFactory.ts';
+import HighlightBox from '../overlay-shared/components/HighlightBox.vue';
+import OverlayPanel from '../overlay-shared/components/OverlayPanel.vue';
+import type { ModeDef } from '../overlay-shared/types';
+import { createSelectorGenerator } from '../locator-shared/injectedScriptFactory';
 import { RecorderMessageType } from '../../../index';
 import { TEST_ID_ATTRIBUTE_NAME, dispatchUserAction, type GenerateSelector } from '../locator-shared/userAction';
+
+const MODES: ModeDef[] = [
+  { id: 'record', label: 'Record' },
+  { id: 'pick', label: 'Hover' },
+];
+
+const BADGE_LABELS: Record<Mode, string> = {
+  record: 'Recording',
+  pick: 'Hover mode',
+};
 
 const { RECORDING_STATUS } = RecorderMessageType;
 
@@ -29,6 +38,8 @@ const enabled = ref(false);
 const mode = ref<Mode>('record');
 const hoveredRect = ref<DOMRect | null>(null);
 const hoveredSelector = ref<string | null>(null);
+
+const badgeLabel = computed(() => BADGE_LABELS[mode.value]);
 
 let lastHoveredEl: Element | null = null;
 let rafPending = false;

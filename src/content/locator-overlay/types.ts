@@ -6,9 +6,3 @@ declare global {
     __loadster_destroyOverlay: () => void;
   }
 }
-
-export interface OverlayState {
-  mode: Mode;
-  hoveredRect: DOMRect | null;
-  hoveredSelector: string | null;
-}

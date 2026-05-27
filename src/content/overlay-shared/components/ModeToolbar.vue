@@ -1,7 +1,7 @@
 <template>
   <div class="toolbar">
     <button
-      v-for="m in MODES"
+      v-for="m in modes"
       :key="m.id"
       class="btn"
       :class="{ active: modelValue === m.id, [m.id]: true }"
@@ -13,13 +13,8 @@
 </template>
 
 <script setup lang="ts">
-import type { Mode } from '../types.ts';
+import type { ModeDef } from '../types.ts';
 
-defineProps<{ modelValue: Mode }>();
-defineEmits<{ 'update:modelValue': [mode: Mode] }>();
-
-const MODES: { id: Mode; label: string }[] = [
-  { id: 'record', label: 'Record' },
-  { id: 'pick', label: 'Pick' },
-];
+defineProps<{ modelValue: string; modes: ModeDef[] }>();
+defineEmits<{ 'update:modelValue': [mode: string] }>();
 </script>

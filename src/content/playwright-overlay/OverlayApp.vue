@@ -1,21 +1,36 @@
 <template>
   <HighlightBox v-if="state.hoveredRect" :rect="state.hoveredRect" :selector="state.hoveredSelector" :mode="state.mode" />
-  <RecordingBadge v-if="isTopFrame" :mode="state.mode" />
-  <ModeToolbar v-if="isTopFrame" v-model="state.mode" />
+  <OverlayPanel v-if="isTopFrame" :mode="state.mode" :modes="MODES" :badge-label="badgeLabel" @update:mode="state.mode = $event as Mode" />
 </template>
 
 <script setup lang="ts">
-import { inject, onMounted, reactive, watch } from 'vue';
+import { inject, onMounted, reactive, computed, watch } from 'vue';
 import type { Mode, OverlayState } from './types';
-import HighlightBox from './components/HighlightBox.vue';
-import RecordingBadge from './components/RecordingBadge.vue';
-import ModeToolbar from './components/ModeToolbar.vue';
+import HighlightBox from '../overlay-shared/components/HighlightBox.vue';
+import OverlayPanel from '../overlay-shared/components/OverlayPanel.vue';
+import type { ModeDef } from '../overlay-shared/types';
+
+const MODES: ModeDef[] = [
+  { id: 'record', label: 'Record' },
+  { id: 'assertVisible', label: 'Visible' },
+  { id: 'assertText', label: 'Text' },
+  { id: 'assertValue', label: 'Value' },
+];
+
+const BADGE_LABELS: Record<Mode, string> = {
+  record: 'Recording',
+  assertVisible: 'Assert Visible',
+  assertText: 'Assert Text',
+  assertValue: 'Assert Value',
+};
 
 const isTopFrame = window === window.top;
 
 const state = reactive<OverlayState>({ mode: 'record', hoveredRect: null, hoveredSelector: null });
 const injectedScript = inject<any>('injectedScript')!;
 const host = inject<HTMLElement>('overlayHost')!;
+
+const badgeLabel = computed(() => BADGE_LABELS[state.mode]);
 
 // Top frame broadcasts mode changes; iframes listen and sync their local mode.
 if (isTopFrame) {

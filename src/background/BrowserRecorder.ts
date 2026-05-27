@@ -6,15 +6,8 @@ import { parseRecorderConfig } from '../utils/messagingUtils';
 
 const { ENDPOINT_PAGE_CONNECT, NAVIGATE_URL, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION, RECORDING_TRACKING } = RecorderMessageType;
 
-// eslint-disable-next-line no-undef
-const isFirefox = __BROWSER__ === 'firefox';
-
-const SCRIPT_IDS = {
-  recorder: 'loadster-locator-recorder',
-};
-
 export default class BrowserRecorder extends Recorder {
-  pageContentScriptId = SCRIPT_IDS.recorder;
+  pageContentScriptId = 'loadster-locator-recorder';
 
   static async cleanupStaleScripts() {
     if (browser.runtime.getManifest().manifest_version === 3) {
@@ -108,7 +101,7 @@ export default class BrowserRecorder extends Recorder {
           matches: ['*://*/*'],
           excludeMatches,
           js: ['src/content/locatorRecorder.js'],
-          id: SCRIPT_IDS.recorder,
+          id: this.pageContentScriptId,
           allFrames: true,
           matchOriginAsFallback: true,
           runAt: 'document_end',
@@ -148,7 +141,7 @@ export default class BrowserRecorder extends Recorder {
     const { manifest_version } = browser.runtime.getManifest();
 
     if (manifest_version === 3) {
-      await browser.scripting.unregisterContentScripts({ ids: Object.values(SCRIPT_IDS) });
+      await browser.scripting.unregisterContentScripts({ ids: [this.pageContentScriptId] });
     } else {
       this.registeredScripts.forEach(script => script.unregister());
     }
@@ -212,7 +205,8 @@ export default class BrowserRecorder extends Recorder {
     const { tabId, frameId, frameType, transitionType, transitionQualifiers, ...data } = details;
 
     if (this.tabIds.has(tabId)) {
-      if (isFirefox || frameType === 'outermost_frame') {
+      // eslint-disable-next-line no-undef
+      if (__BROWSER__ === 'firefox' || frameType === 'outermost_frame') {
         this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, frameId, frameType, transitionType, type: 'navigation' } as RecordingTrackingData);
         await this.injectForegroundScripts(tabId);
       } else if (frameType === 'sub_frame') {
