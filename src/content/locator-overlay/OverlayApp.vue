@@ -17,7 +17,7 @@ import type { Mode } from './types.ts';
 import HighlightBox from './components/HighlightBox.vue';
 import RecordingBadge from './components/RecordingBadge.vue';
 import ModeToolbar from './components/ModeToolbar.vue';
-import { createSelectorGenerator } from '@mizchi/selector-generator';
+import { createSelectorGenerator } from '../locator-shared/injectedScriptFactory.ts';
 import { RecorderMessageType } from '../../../index';
 import { TEST_ID_ATTRIBUTE_NAME, dispatchUserAction, type GenerateSelector } from '../locator-shared/userAction';
 
@@ -79,7 +79,7 @@ onMounted(() => {
     const detail = (event as CustomEvent).detail;
     enabled.value = detail.enabled;
     if (detail.enabled && !initialized) {
-      generateSelector = createSelectorGenerator(window, false, 'javascript', TEST_ID_ATTRIBUTE_NAME);
+      generateSelector = createSelectorGenerator(window, { testIdAttributeName: TEST_ID_ATTRIBUTE_NAME });
       initialized = true;
     }
   });

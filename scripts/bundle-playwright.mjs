@@ -41,12 +41,14 @@ fs.writeFileSync(barrelPath, [
   `import _lang from ${JSON.stringify(PW_LIB + '/server/codegen/language.js')};`,
   `import _js   from ${JSON.stringify(PW_LIB + '/server/codegen/javascript.js')};`,
   `import _ru   from ${JSON.stringify(PW_LIB + '/server/recorder/recorderUtils.js')};`,
+  `import _lg   from ${JSON.stringify(PW_LIB + '/utils/isomorphic/locatorGenerators.js')};`,
   '',
   'export const generateCode              = _lang.generateCode;',
   'export const toSignalMap               = _lang.toSignalMap;',
   'export const JavaScriptLanguageGenerator = _js.JavaScriptLanguageGenerator;',
   'export const collapseActions           = _ru.collapseActions;',
   'export const shouldMergeAction         = _ru.shouldMergeAction;',
+  'export const asLocator                 = _lg.asLocator;',
 ].join('\n'));
 
 // Shim for playwright-core/lib/utils.js — exposes only what codegen actually uses,
@@ -135,6 +137,33 @@ if (pollingSource && injectedSource && bindingsSource) {
   console.log('  src/generated/playwright-recorder-source.js (3 exports)');
 } else {
   console.warn('Warning: one or more recorder sources missing, skipping Bundle B');
+}
+
+// ---------------------------------------------------------------------------
+// Bundle C: InjectedScript constructor module — IIFE inlined as static code.
+// Using new Function() or eval() is blocked by the extension's CSP; inlining the
+// IIFE directly means it executes as regular JS at module load, not via eval.
+// ---------------------------------------------------------------------------
+
+if (injectedSource) {
+  fs.writeFileSync(
+    path.join(OUT_DIR, 'playwright-injected-ctor.js'),
+    [
+      '// Auto-generated — do not edit',
+      'const __module = {};',
+      '(function(module) {',
+      injectedSource,
+      '})(__module);',
+      'export function getInjectedScriptClass() {',
+      '  return __module.exports.InjectedScript();',
+      '}',
+      '',
+    ].join('\n'),
+  );
+  const csize = fs.statSync(path.join(OUT_DIR, 'playwright-injected-ctor.js')).size;
+  console.log(`  src/generated/playwright-injected-ctor.js (${(csize / 1024).toFixed(1)} KB)`);
+} else {
+  console.warn('Warning: injectedSource missing, skipping Bundle C');
 }
 
 console.log('Done.');

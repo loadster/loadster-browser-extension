@@ -27,7 +27,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
-    "@mizchi/selector-generator": "^1.50.0-next",
     "@types/chrome": "^0.1.37",
     "@types/node": "^25.3.3",
     "@types/webextension-polyfill": "^0.12.5",

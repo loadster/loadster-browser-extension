@@ -1,4 +1,4 @@
-import { toLocator } from '@mizchi/selector-generator';
+import { asLocator } from '../../generated/playwright-codegen.js';
 
 export interface ElementLocatorSpec {
   method: string;
@@ -7,7 +7,7 @@ export interface ElementLocatorSpec {
 
 export function adaptSelector(rawSelector: string): ElementLocatorSpec[] {
   try {
-    const jsonStr = toLocator(rawSelector, 'jsonl');
+    const jsonStr = asLocator('jsonl', rawSelector);
     return flattenLocatorChain(jsonStr);
   } catch {
     return [{ method: 'locator', selector: rawSelector }];

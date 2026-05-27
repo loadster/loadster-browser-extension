@@ -1,4 +1,4 @@
-import { createSelectorGenerator } from '@mizchi/selector-generator';
+import { createSelectorGenerator } from './locator-shared/injectedScriptFactory.ts';
 import { RecorderMessageType } from '../../index.ts';
 import {
   TEST_ID_ATTRIBUTE_NAME,
@@ -16,13 +16,11 @@ if (!window.loadsterLocatorRecorderLoaded) {
   let initialized = false;
   let generateSelector = null;
 
-  window.dispatchEvent(new CustomEvent('loadster-locator-recorder-ready'));
-
   window.addEventListener(RECORDING_STATUS, (event) => {
     enabled = event.detail.enabled;
 
     if (enabled && !initialized) {
-      generateSelector = createSelectorGenerator(window, false, 'javascript', TEST_ID_ATTRIBUTE_NAME);
+      generateSelector = createSelectorGenerator(window, { testIdAttributeName: TEST_ID_ATTRIBUTE_NAME });
 
       window.__loadster_generateLocator = (el) => {
         try {
@@ -36,6 +34,12 @@ if (!window.loadsterLocatorRecorderLoaded) {
       initialized = true;
     }
   });
+
+  // Fire AFTER the RECORDING_STATUS listener is registered so that the overlay's
+  // synchronous replayLastStatus() dispatch is received. In Firefox both scripts
+  // share the same isolated world, so the dispatch is synchronous — firing the
+  // ready event first would miss the replayed RECORDING_STATUS.
+  window.dispatchEvent(new CustomEvent('loadster-locator-recorder-ready'));
 
   function recordEvent(e) {
     if (!enabled || !generateSelector || !(e.target instanceof Element)) return;
