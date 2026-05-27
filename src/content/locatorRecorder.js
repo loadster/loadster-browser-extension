@@ -43,6 +43,7 @@ if (!window.loadsterLocatorRecorderLoaded) {
 
   function recordEvent(e) {
     if (!enabled || !generateSelector || !(e.target instanceof Element)) return;
+    if (e.target.closest('[data-loadster-overlay]')) return;
 
     try {
       dispatchUserAction({

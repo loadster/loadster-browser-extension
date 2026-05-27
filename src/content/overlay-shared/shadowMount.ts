@@ -9,6 +9,7 @@ export interface ShadowMountOptions {
 
 export function mountShadowOverlay({ rootComponent, provides = {} }: ShadowMountOptions): { destroy: () => void } {
   const host = document.createElement('div');
+  host.setAttribute('data-loadster-overlay', '');
   Object.assign(host.style, {
     position: 'fixed',
     top: '0',
