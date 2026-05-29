@@ -21,8 +21,8 @@ import { RecorderMessageType } from '../../../index';
 import { TEST_ID_ATTRIBUTE_NAME, dispatchUserAction, type GenerateSelector } from '../locator-shared/userAction';
 
 const MODES: ModeDef[] = [
-  { id: 'record', label: 'Record' },
-  { id: 'pick', label: 'Hover' },
+  { id: 'record', label: 'Record', hint: 'Hold Alt (Option ⌥) and click an element to record a hover' },
+  { id: 'pick', label: 'Hover', hint: 'Click an element to record a hover · Esc to exit' },
 ];
 
 const BADGE_LABELS: Record<Mode, string> = {
@@ -46,6 +46,7 @@ let rafPending = false;
 let pendingEl: Element | null = null;
 let generateSelector: GenerateSelector | null = null;
 let initialized = false;
+let momentaryHover = false;
 
 function clearHover() {
   hoveredRect.value = null;
@@ -130,7 +131,29 @@ onMounted(() => {
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape' && mode.value === 'pick') {
       mode.value = 'record';
+      momentaryHover = false;
+      return;
+    }
+    // Spring-loaded Alt: hold to temporarily enter Hover mode; release to return to Record.
+    if (e.key === 'Alt' && !e.repeat && enabled.value && mode.value === 'record') {
+      mode.value = 'pick';
+      momentaryHover = true;
     }
   }, { capture: true });
+
+  document.addEventListener('keyup', (e: KeyboardEvent) => {
+    if (e.key === 'Alt' && momentaryHover) {
+      mode.value = 'record';
+      momentaryHover = false;
+    }
+  }, { capture: true });
+
+  // Safety reset: if Alt is released while focus leaves the window (e.g. Alt-Tab), snap back.
+  window.addEventListener('blur', () => {
+    if (momentaryHover) {
+      mode.value = 'record';
+      momentaryHover = false;
+    }
+  });
 });
 </script>

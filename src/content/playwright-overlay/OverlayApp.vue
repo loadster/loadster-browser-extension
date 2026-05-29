@@ -12,9 +12,9 @@ import type { ModeDef } from '../overlay-shared/types';
 
 const MODES: ModeDef[] = [
   { id: 'record', label: 'Record' },
-  { id: 'assertVisible', label: 'Visible' },
-  { id: 'assertText', label: 'Text' },
-  { id: 'assertValue', label: 'Value' },
+  { id: 'assertVisible', label: 'Visible', hint: "Click an element to assert it's visible" },
+  { id: 'assertText', label: 'Text', hint: 'Click an element to assert its text' },
+  { id: 'assertValue', label: 'Value', hint: 'Click an input to assert its value' },
 ];
 
 const BADGE_LABELS: Record<Mode, string> = {

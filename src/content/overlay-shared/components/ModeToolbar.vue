@@ -5,6 +5,7 @@
       :key="m.id"
       class="btn"
       :class="{ active: modelValue === m.id, [m.id]: true }"
+      :title="m.hint"
       @click.stop.prevent="$emit('update:modelValue', m.id)"
     >
       {{ m.label }}

@@ -89,6 +89,53 @@
 .btn.record.active       { background: var(--ls-accent-record); color: rgba(0,0,0,0.8); }
 .btn:not(.record).active { background: var(--ls-accent-mode); color: rgba(0,0,0,0.8); }
 
+.help {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.35);
+  cursor: help;
+  flex-shrink: 0;
+  outline: none;
+  transition: color 0.15s;
+}
+.help:hover,
+.help:focus {
+  color: rgba(255,255,255,0.75);
+}
+
+.help-popover {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: rgba(20,20,20,0.96);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.8);
+  white-space: normal;
+  max-width: 240px;
+  min-width: 140px;
+  line-height: 1.5;
+  pointer-events: none;
+  z-index: 2147483647;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+}
+.help:hover .help-popover,
+.help:focus .help-popover {
+  display: block;
+}
+
 .highlight-box {
   position: fixed;
   top: 0;
