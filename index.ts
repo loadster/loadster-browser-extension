@@ -1,3 +1,6 @@
+import { ElementLocatorSpec, includeElementAttributes } from './src/content/locator-shared/selectorAdapter';
+import browser from 'webextension-polyfill';
+
 export enum BridgeEvent {
   CONNECT = 'loadster_connect_extension',
   CONNECTED = 'loadster_connected_extension',
@@ -55,19 +58,32 @@ export type LoadsterPortMessage = {
   }
 }
 
+export interface BrowserNavigationEventData {
+  timestamp: number;
+  url: string;
+  transitionType: browser.WebNavigation.TransitionType;
+}
+
+export interface BrowserElementActionEventData {
+  timestamp: number
+  action: string
+  locators: ElementLocatorSpec[]
+  value: string // for <select/> options
+  tagName: string
+  rawSelector: string
+  rawSelectors: string[]
+  attrs: Record<string, string>
+  keyboard: Record<string, boolean>
+
+  /** @deprecated - use locators or rawSelector */
+  element: string
+  /** @deprecated - use rawSelectors */
+  selectors: string[]
+}
+
 export interface BrowserEvent {
   action: string;
-  data: {
-    timestamp?: number;
-
-    url?: string;
-    transitionType?: string;
-    tagName?: string;
-    selectors?: Record<string, string | string[]>;
-    value?: string;
-    attrs?: Record<string, string>;
-    [key: string]: unknown;
-  };
+  data: BrowserNavigationEventData | BrowserElementActionEventData;
   tabId?: number;
 }
 

@@ -32,7 +32,9 @@ export default class BrowserRecorder extends Recorder {
           action: 'navigate',
           tabId: this.tabIds.values().next().value,
           data: {
-            url: message.data.value
+            timestamp: Date.now(),
+            url: message.data.value,
+            transitionType: 'generated'
           }
         });
       }
@@ -202,7 +204,7 @@ export default class BrowserRecorder extends Recorder {
   }
 
   async navigationCommitted(details: browser.WebNavigation.OnCommittedDetailsType & { frameType?: string }) {
-    const { tabId, frameId, frameType, transitionType, transitionQualifiers, ...data } = details;
+    const { tabId, frameId, frameType, transitionType, transitionQualifiers, timeStamp: timestamp, url } = details;
 
     if (this.tabIds.has(tabId)) {
       // eslint-disable-next-line no-undef
@@ -213,9 +215,9 @@ export default class BrowserRecorder extends Recorder {
         await this.injectSubFrameScript(tabId, frameId);
       }
       if (['typed'].includes(transitionType)) {
-        this.uploadBrowserEvent({ action: 'navigate', data });
+        this.uploadBrowserEvent({ action: 'navigate', data: { url, timestamp, transitionType } });
       } else if (['link'].includes(transitionType) && transitionQualifiers.includes('forward_back')) {
-        this.uploadBrowserEvent({ action: 'navigate', data });
+        this.uploadBrowserEvent({ action: 'navigate', data: { url, timestamp, transitionType } });
       }
     }
   }

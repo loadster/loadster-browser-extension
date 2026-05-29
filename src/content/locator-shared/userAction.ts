@@ -1,5 +1,5 @@
 import { createMessage } from '../../utils/messagingUtils';
-import { RecorderMessageType } from '../../../index';
+import { BrowserElementActionEventData, BrowserEvent, RecorderMessageType } from '../../../index';
 import { adaptSelector, includeElementAttributes, type ElementLocatorSpec } from './selectorAdapter';
 
 export const TEST_ID_ATTRIBUTE_NAME = 'data-testid';
@@ -13,7 +13,7 @@ const NO_KEYBOARD: Keyboard = { alt: false, shift: false, ctrl: false, meta: fal
 export type GenerateSelector = (
   el: Element,
   opts: { testIdAttributeName: string }
-) => { selector: string; selectors: Record<string, string | string[]> };
+) => { selector: string; selectors: string[] };
 
 export interface DispatchUserActionOptions {
   element: Element;
@@ -33,20 +33,19 @@ export function dispatchUserAction({
   const raw = generateSelector(element, { testIdAttributeName: TEST_ID_ATTRIBUTE_NAME });
   const locators = [...framePath.flat(), ...adaptSelector(raw.selector)];
 
-  const msg = {
+  const msg: BrowserElementActionEventData = {
     timestamp: Date.now(),
     action,
     locators,
-    value: (element as HTMLInputElement).value,
+    value: (element as HTMLInputElement).value, // for <select/> options
     tagName: element.tagName,
     rawSelector: raw.selector,
     rawSelectors: raw.selectors,
+
     element: raw.selector,
     selectors: raw.selectors,
     attrs: includeElementAttributes(element),
     keyboard,
-    textContent: element.textContent,
-    href: (element as HTMLAnchorElement).href || null,
   };
 
   window.top!.dispatchEvent(new CustomEvent(RecorderMessageType.USER_ACTION, {
