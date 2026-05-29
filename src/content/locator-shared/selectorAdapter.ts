@@ -1,9 +1,6 @@
 import { asLocator } from '../../generated/playwright-codegen.js';
+import { ElementLocatorSpec } from '../../../index';
 
-export interface ElementLocatorSpec {
-  method: string;
-  [key: string]: unknown;
-}
 
 export function adaptSelector(rawSelector: string): ElementLocatorSpec[] {
   try {

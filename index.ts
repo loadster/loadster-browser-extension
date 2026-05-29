@@ -1,4 +1,3 @@
-import { ElementLocatorSpec } from './src/content/locator-shared/selectorAdapter';
 import browser from 'webextension-polyfill';
 
 export enum BridgeEvent {
@@ -62,6 +61,11 @@ export interface BrowserNavigationEventData {
   timestamp: number;
   url: string;
   transitionType: browser.WebNavigation.TransitionType;
+}
+
+export interface ElementLocatorSpec {
+  method: string;
+  [key: string]: unknown;
 }
 
 export interface BrowserElementActionEventData {
