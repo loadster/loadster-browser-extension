@@ -1,4 +1,4 @@
-import { ElementLocatorSpec, includeElementAttributes } from './src/content/locator-shared/selectorAdapter';
+import { ElementLocatorSpec } from './src/content/locator-shared/selectorAdapter';
 import browser from 'webextension-polyfill';
 
 export enum BridgeEvent {
