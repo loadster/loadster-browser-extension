@@ -1,14 +1,16 @@
 {
   "name": "loadster-browser-extension",
   "type": "module",
-  "version": "28.0.0",
+  "version": "29.0.0",
   "exports": {
     ".": {
       "types": "./dist/lib/index.d.ts",
       "import": "./dist/lib/index.js"
     }
   },
-  "files": ["dist/lib"],
+  "files": [
+    "dist/lib"
+  ],
   "description": "Create test scripts to run in Loadster.",
   "scripts": {
     "dev": "vite dev",
@@ -18,18 +20,11 @@
     "build-chrome": "cross-env TARGET=chrome vite build",
     "build-firefox": "cross-env TARGET=firefox vite build",
     "prebuild": "npm run bundle-playwright && node scripts/bundle-overlay.mjs",
-    "fetch-playwright": "node scripts/fetch-playwright.js",
     "bundle-playwright": "node scripts/bundle-playwright.mjs",
     "lint": "eslint . --fix",
     "tsx": "tsc --noEmit"
   },
   "devDependencies": {
-    "@medv/finder": "^3.2.0",
-    "@mizchi/selector-generator": "^1.50.0-next",
-    "events": "^3.3.0",
-    "playwright-core": "1.58.0",
-    "vue": "^3.5.30",
-    "webextension-polyfill": "^0.12.0",
     "@eslint/js": "^9.9.0",
     "@types/chrome": "^0.1.37",
     "@types/node": "^25.3.3",
@@ -40,11 +35,15 @@
     "cross-env": "^7.0.3",
     "esbuild": "^0.27.0",
     "eslint": "^9.9.0",
+    "events": "^3.3.0",
     "globals": "^15.9.0",
+    "playwright-core": "1.58.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-web-extension": "^4.5.0",
-    "vue-tsc": "^3.2.5"
+    "vue": "^3.5.30",
+    "vue-tsc": "^3.2.5",
+    "webextension-polyfill": "^0.12.0"
   },
   "engines": {
     "node": "^24",

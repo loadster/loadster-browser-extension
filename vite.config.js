@@ -4,6 +4,48 @@ import { spawn } from 'child_process';
 import path from 'path';
 
 /**
+ * Builds the locator overlay (Vue 3 + Shadow DOM) for each target.
+ * Runs as a post-step after the main bundle so the Vue plugin can be applied.
+ * Output: dist/{target}/src/content/locator-overlay/index.js
+ */
+function locatorOverlayBuildPlugin(target) {
+  return {
+    name: 'locator-overlay-build',
+    apply: 'build',
+    async closeBundle() {
+      const { build } = await import('vite');
+      const { default: vue } = await import('@vitejs/plugin-vue');
+      await build({
+        root: process.cwd(),
+        configFile: false,
+        publicDir: false,
+        plugins: [vue()],
+        define: {
+          __BROWSER__: JSON.stringify(target),
+          'process.env.NODE_ENV': JSON.stringify('production'),
+        },
+        build: {
+          lib: {
+            entry: path.resolve(process.cwd(), 'src/content/locator-overlay/index.ts'),
+            formats: ['iife'],
+            name: '__ls_overlay',
+          },
+          assetsInlineLimit: Infinity,
+          outDir: `dist/${target}/src/content/locator-overlay`,
+          emptyOutDir: false,
+          rollupOptions: {
+            output: { entryFileNames: 'index.js' },
+          },
+          minify: true,
+          sourcemap: false,
+        },
+        logLevel: 'warn',
+      });
+    },
+  };
+}
+
+/**
  * Builds overlayInjected.js once at dev-server startup and exposes a CLI
  * shortcut (press `o`) for on-demand rebuilds. No file watcher — avoids
  * race conditions from rapid saves and infinite HMR loops.
@@ -66,6 +108,7 @@ export default defineConfig({
   },
   plugins: [
     overlayBuildPlugin(),
+    locatorOverlayBuildPlugin(target),
     webExtension({
       verbose: true,
       browser: target, manifest: () => {
@@ -81,9 +124,7 @@ export default defineConfig({
         };
       },
       additionalInputs: [
-        'src/index.html',
-        'src/content/contentTab.js',
-        'src/content/windowEventRecorder.js'
+        'src/content/locatorRecorder.js',
       ]
     })
   ],

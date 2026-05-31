@@ -23,7 +23,7 @@ contact [help@loadster.com](mailto:help@loadster.com).
 
 ## Libraries
 
-* [@medv/finder](https://www.npmjs.com/package/@medv/finder) - The CSS Selector Generator
+* [playwright-core](https://www.npmjs.com/package/playwright-core) - Selector Generator
 * [webextension-polyfill](https://www.npmjs.com/package/webextension-polyfill) - WebExtension browser API Polyfill
 
 ## Releases

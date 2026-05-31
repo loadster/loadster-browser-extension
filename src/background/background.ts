@@ -8,8 +8,6 @@ import PlaywrightRecorder from './PlaywrightRecorder.js';
 let activeRecorder = null;
 
 // Clean up any stale content script registrations from previous sessions.
-// This handles cases where the service worker was killed mid-recording or the browser
-// crashed without a proper cleanup, leaving the windowEventRecorder.js registered on all pages.
 BrowserRecorder.cleanupStaleScripts().then();
 
 browser.runtime.onConnect.addListener((port) => {

@@ -5,7 +5,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 
 export default [
   {
-    ignores: ['dist/**', 'bk/**', 'src/generated/**'],
+    ignores: ['dist/**', 'bk/**', 'src/generated/**', 'playwright/**'],
   },
   js.configs.recommended,
   {

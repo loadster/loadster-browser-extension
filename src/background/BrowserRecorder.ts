@@ -6,18 +6,16 @@ import { parseRecorderConfig } from '../utils/messagingUtils';
 
 const { ENDPOINT_PAGE_CONNECT, NAVIGATE_URL, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION, RECORDING_TRACKING } = RecorderMessageType;
 
-// eslint-disable-next-line no-undef
-const isFirefox = __BROWSER__ === 'firefox';
-
 export default class BrowserRecorder extends Recorder {
-  pageContentScriptId = 'loadster-page-content-scripts';
+  pageContentScriptId = 'loadster-locator-recorder';
 
   static async cleanupStaleScripts() {
     if (browser.runtime.getManifest().manifest_version === 3) {
       try {
-        await browser.scripting.unregisterContentScripts({ ids: ['loadster-page-content-scripts'] });
-      } catch (e) {
-        // Script wasn't registered, that's fine
+        await browser.scripting.unregisterContentScripts();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e: any) {
+        // Scripts weren't registered, that's fine
       }
     }
   }
@@ -34,15 +32,16 @@ export default class BrowserRecorder extends Recorder {
           action: 'navigate',
           tabId: this.tabIds.values().next().value,
           data: {
-            url: message.data.value
+            timestamp: Date.now(),
+            url: message.data.value,
+            transitionType: 'generated'
           }
         });
       }
     });
 
     browser.webNavigation.onCommitted.addListener(this.navigationCommitted.bind(this));
-    this.registerPageContentScripts().then(() => {
-    });
+    this.registerPageContentScripts().then(() => {});
 
     browser.runtime.onConnect.addListener(async (port) => {
       const config = parseRecorderConfig(port.name);
@@ -94,39 +93,39 @@ export default class BrowserRecorder extends Recorder {
   async registerPageContentScripts() {
     const { manifest_version } = browser.runtime.getManifest();
 
-    if (manifest_version === 3) {
-      // Unregister first to avoid "Duplicate script ID" error
-      try {
-        await browser.scripting.unregisterContentScripts({
-          ids: [this.pageContentScriptId]
-        });
-      } catch (e) {
-        // Script wasn't registered, that's fine
-      }
+    const excludeMatches = ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*'];
 
-      await browser.scripting.registerContentScripts([{
-        matches: ['*://*/*'],
-        excludeMatches: ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*'],
-        js: ['src/content/windowEventRecorder.js'],
-        id: this.pageContentScriptId,
-        allFrames: true,
-        runAt: 'document_start',
-        world: 'MAIN'
-      }]);
+    if (manifest_version === 3) {
+      await BrowserRecorder.cleanupStaleScripts();
+
+      await browser.scripting.registerContentScripts([
+        {
+          matches: ['*://*/*'],
+          excludeMatches,
+          js: ['src/content/locatorRecorder.js'],
+          id: this.pageContentScriptId,
+          allFrames: true,
+          matchOriginAsFallback: true,
+          runAt: 'document_end',
+          world: 'MAIN',
+        },
+      ]);
     } else {
-      const script = await browser.contentScripts.register({
+      const recorderScript = await browser.contentScripts.register({
         matches: ['*://*/*'],
-        excludeMatches: ['*://localhost/*', 'https://loadster.com/*', 'https://loadster.app/*'],
+        excludeMatches,
         js: [{
-          file: 'src/content/windowEventRecorder.js'
+          file: 'src/content/locatorRecorder.js'
         }],
         allFrames: true,
-        runAt: 'document_start',
-        world: 'MAIN'
+        matchAboutBlank: true,
+        runAt: 'document_end',
+        // Firefox MV2 contentScripts.register does not support world:'MAIN';
+        // omitting it runs in isolated world which is sufficient for event capture.
       });
 
       // @ts-ignore
-      this.registeredScripts.push(script);
+      this.registeredScripts.push(recorderScript);
     }
   }
 
@@ -135,15 +134,13 @@ export default class BrowserRecorder extends Recorder {
 
     browser.webNavigation.onCommitted.removeListener(this.navigationCommitted);
 
-    this.tabIds.forEach(tabId => this.updateWindowsRecordingStatus());
+    this.tabIds.forEach(() => this.updateWindowsRecordingStatus());
 
     this.unregisterAllDynamicContentScripts().then();
   }
 
   async unregisterAllDynamicContentScripts() {
     const { manifest_version } = browser.runtime.getManifest();
-
-    console.log('unregisterAllDynamicContentScripts', this.registeredScripts);
 
     if (manifest_version === 3) {
       await browser.scripting.unregisterContentScripts({ ids: [this.pageContentScriptId] });
@@ -156,16 +153,14 @@ export default class BrowserRecorder extends Recorder {
     try {
       const { manifest_version } = browser.runtime.getManifest();
 
-      // console.log('injectForegroundScripts', { tabId });
-
       if (manifest_version === 3) {
         await browser.scripting.executeScript({
           target: { tabId, allFrames: true },
-          files: ['src/content/contentTab.js']
+          files: ['src/content/locator-overlay/index.js']
         });
       } else {
         await browser.tabs.executeScript(tabId, {
-          file: 'src/content/contentTab.js',
+          file: 'src/content/locator-overlay/index.js',
           allFrames: true,
           runAt: 'document_start'
         });
@@ -179,9 +174,29 @@ export default class BrowserRecorder extends Recorder {
     }
   }
 
+  async injectSubFrameScript(tabId: number, frameId: number) {
+    try {
+      const { manifest_version } = browser.runtime.getManifest();
+
+      if (manifest_version === 3) {
+        await browser.scripting.executeScript({
+          target: { tabId, frameIds: [frameId] },
+          files: ['src/content/locator-overlay/index.js']
+        });
+      } else {
+        await browser.tabs.executeScript(tabId, {
+          file: 'src/content/locator-overlay/index.js',
+          frameId,
+          runAt: 'document_start'
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   uploadBrowserEvent(event: BrowserEvent) {
     this.sendMessageToLoadster(RECORDING_EVENTS, {
-      http: {},
       browser: {
         [generateId(event.action)]: event
       }
@@ -189,17 +204,20 @@ export default class BrowserRecorder extends Recorder {
   }
 
   async navigationCommitted(details: browser.WebNavigation.OnCommittedDetailsType & { frameType?: string }) {
-    const { tabId, frameId, frameType, transitionType, transitionQualifiers, ...data } = details;
+    const { tabId, frameId, frameType, transitionType, transitionQualifiers, timeStamp: timestamp, url } = details;
 
     if (this.tabIds.has(tabId)) {
-      if (isFirefox || frameType === 'outermost_frame') {
+      // eslint-disable-next-line no-undef
+      if (__BROWSER__ === 'firefox' || frameType === 'outermost_frame') {
         this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, frameId, frameType, transitionType, type: 'navigation' } as RecordingTrackingData);
         await this.injectForegroundScripts(tabId);
+      } else if (frameType === 'sub_frame') {
+        await this.injectSubFrameScript(tabId, frameId);
       }
       if (['typed'].includes(transitionType)) {
-        this.uploadBrowserEvent({ action: 'navigate', data });
+        this.uploadBrowserEvent({ action: 'navigate', data: { url, timestamp, transitionType } });
       } else if (['link'].includes(transitionType) && transitionQualifiers.includes('forward_back')) {
-        this.uploadBrowserEvent({ action: 'navigate', data });
+        this.uploadBrowserEvent({ action: 'navigate', data: { url, timestamp, transitionType } });
       }
     }
   }
