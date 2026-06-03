@@ -1,6 +1,6 @@
 import { createMessage } from '../../utils/messagingUtils';
-import { BrowserElementActionEventData, RecorderMessageType } from '../../../index';
-import { adaptSelector, includeElementAttributes, type ElementLocatorSpec } from './selectorAdapter';
+import { BrowserElementActionEventData, ElementLocatorSpec, RecorderMessageType } from '../../../index';
+import { adaptSelector, includeElementAttributes } from './selectorAdapter';
 
 export const TEST_ID_ATTRIBUTE_NAME = 'data-testid';
 

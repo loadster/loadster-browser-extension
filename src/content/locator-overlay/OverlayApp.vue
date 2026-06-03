@@ -6,7 +6,11 @@
       :selector="hoveredSelector"
       :mode="mode"
     />
-    <OverlayPanel :mode="mode" :modes="MODES" :badge-label="badgeLabel" @update:mode="mode = $event as Mode" />
+    <OverlayPanel :mode="mode" :modes="MODES" :badge-label="badgeLabel" @update:mode="mode = $event as Mode">
+      <template #log>
+        <EventLog :events="recordedEvents" />
+      </template>
+    </OverlayPanel>
   </template>
 </template>
 
@@ -15,7 +19,8 @@ import { inject, onMounted, ref, computed, watch } from 'vue';
 import type { Mode } from './types.ts';
 import HighlightBox from '../overlay-shared/components/HighlightBox.vue';
 import OverlayPanel from '../overlay-shared/components/OverlayPanel.vue';
-import type { ModeDef } from '../overlay-shared/types';
+import EventLog from '../overlay-shared/components/EventLog.vue';
+import type { ModeDef, RecordedEvent } from '../overlay-shared/types';
 import { createSelectorGenerator } from '../locator-shared/injectedScriptFactory';
 import { RecorderMessageType } from '../../../index';
 import { TEST_ID_ATTRIBUTE_NAME, dispatchUserAction, type GenerateSelector } from '../locator-shared/userAction';
@@ -30,7 +35,7 @@ const BADGE_LABELS: Record<Mode, string> = {
   pick: 'Hover mode',
 };
 
-const { RECORDING_STATUS } = RecorderMessageType;
+const { RECORDING_STATUS, USER_ACTION } = RecorderMessageType;
 
 const host = inject<HTMLElement>('overlayHost')!;
 
@@ -40,6 +45,17 @@ const hoveredRect = ref<DOMRect | null>(null);
 const hoveredSelector = ref<string | null>(null);
 
 const badgeLabel = computed(() => BADGE_LABELS[mode.value]);
+
+let eventId = 0;
+const recordedEvents = ref<RecordedEvent[]>([]);
+
+function stripInternalSelector(raw?: string): string {
+  if (!raw) return '';
+  return raw
+    .split('>>')
+    .map((seg) => seg.trim().replace(/^internal:/, '').replace(/"i$/, '"'))
+    .join(' >> ');
+}
 
 let lastHoveredEl: Element | null = null;
 let rafPending = false;
@@ -63,6 +79,7 @@ watch(enabled, (val) => {
   if (!val) {
     mode.value = 'record';
     clearHover();
+    recordedEvents.value = [];
   }
 });
 
@@ -94,6 +111,18 @@ onMounted(() => {
       generateSelector = createSelectorGenerator(window, { testIdAttributeName: TEST_ID_ATTRIBUTE_NAME });
       initialized = true;
     }
+  });
+
+  window.addEventListener(USER_ACTION, (event: Event) => {
+    if (!enabled.value) return;
+    const data = (event as CustomEvent).detail?.data;
+    if (!data) return;
+    const entry: RecordedEvent = {
+      id: ++eventId,
+      action: data.action ?? '?',
+      selector: stripInternalSelector(data.rawSelector) || data.tagName?.toLowerCase() || '?',
+    };
+    recordedEvents.value.push(entry);
   });
 
   document.addEventListener('mousemove', (e: MouseEvent) => {

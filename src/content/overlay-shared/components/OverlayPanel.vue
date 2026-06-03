@@ -6,13 +6,17 @@
     @pointerdown.stop
     :style="pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto' } : {}"
   >
-    <div class="grip" @pointerdown="onGripDown">⠿</div>
-    <RecordingBadge :mode="mode" :label="badgeLabel" />
-    <div class="separator" />
-    <ModeToolbar :model-value="mode" :modes="modes" @update:model-value="$emit('update:mode', $event)" />
-    <div v-if="activeHint" class="help" tabindex="0" aria-label="Help">
-      ?
-      <div class="help-popover">{{ activeHint }}</div>
+    <slot name="log" />
+    <div class="panel-row">
+      <div class="grip" @pointerdown="onGripDown">⠿</div>
+      <div class="panel-logo" v-html="logoSvg" />
+      <RecordingBadge :mode="mode" :label="badgeLabel" />
+      <div class="separator" />
+      <ModeToolbar :model-value="mode" :modes="modes" @update:model-value="$emit('update:mode', $event)" />
+      <div v-if="activeHint" class="help" tabindex="0" aria-label="Help">
+        ?
+        <div class="help-popover">{{ activeHint }}</div>
+      </div>
     </div>
   </div>
 </template>
@@ -23,6 +27,7 @@ import type { ModeDef } from '../types.ts';
 import RecordingBadge from './RecordingBadge.vue';
 import ModeToolbar from './ModeToolbar.vue';
 import { useDraggable } from '../composables/useDraggable';
+import logoSvg from '../../../../public/loadster-logo-mini.svg?raw';
 
 const props = defineProps<{
   mode: string;

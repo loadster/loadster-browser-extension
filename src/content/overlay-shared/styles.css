@@ -15,7 +15,7 @@
   border-radius: 16px;
   padding: 4px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 0;
   box-shadow: 0 2px 10px rgba(0,0,0,0.45);
   pointer-events: auto;
@@ -23,6 +23,11 @@
   font-family: 'Overpass',system-ui,sans-serif;
   color: #fff;
   letter-spacing: 0.03em;
+}
+
+.panel-row {
+  display: flex;
+  align-items: center;
 }
 
 .grip {
@@ -34,7 +39,7 @@
   cursor: grab;
   color: rgba(255,255,255,0.3);
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: 14px;
   font-family: system-ui, monospace;
   line-height: 1;
 }
@@ -51,7 +56,7 @@
   width: 1px;
   height: 16px;
   background: rgba(255,255,255,0.15);
-  margin: 0 2px;
+  margin: 0 4px;
   flex-shrink: 0;
 }
 
@@ -74,7 +79,7 @@
 .btn {
   height: 28px;
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 11px;
   cursor: pointer;
   border: none;
@@ -166,3 +171,104 @@
 }
 .highlight-box.record       .highlight-label { background: var(--ls-accent-record); color: rgba(0,0,0,0.8); }
 .highlight-box:not(.record) .highlight-label { background: var(--ls-accent-mode); color: rgba(0,0,0,0.8); }
+
+@keyframes __ls_row_in__ {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.event-log-wrap {
+
+  max-width: 300px;
+  min-width: 180px;
+}
+
+.event-log-toggle {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(20,20,20, 0.88);
+  border-radius: 16px;
+  color: rgba(255,255,255,0.45);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  width: 30px;
+  height: 20px;
+  cursor: pointer;
+  pointer-events: auto;
+  white-space: nowrap;
+  transition: all 0.12s;
+  border: none;
+  opacity: 0;
+}
+.event-log-toggle span {
+  display: block;
+  text-align: center;
+}
+.panel:hover .event-log-toggle { opacity: 1; }
+
+.event-log-toggle:hover { color: rgba(255,255,255,0.85); }
+
+.event-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 4px;
+  max-height: 100px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 3px;
+}
+
+.event-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  /*animation: __ls_row_in__ 0.15s ease;*/
+  min-width: 0;
+}
+
+.event-chip {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.55);
+}
+.event-chip.hover   { background: rgba(213,248,61,0.18); color: var(--ls-accent-mode); }
+.event-chip.click   { background: rgba(0,200,200,0.18); color: var(--ls-accent-record); }
+.event-chip.dblclick { background: rgba(0,200,200,0.18); color: var(--ls-accent-record); }
+.event-chip.change  { background: rgba(255,180,60,0.18); color: rgb(255,180,60); }
+.event-chip.select  { background: rgba(255,180,60,0.18); color: rgb(255,180,60); }
+.event-chip.submit  { background: rgba(230,34,84,0.18); color: var(--ls-dot-record); }
+
+.panel-logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.80;
+}
+.panel-logo svg {
+  display: block;
+  width: auto;
+  height: 24px;
+}
+
+.event-selector {
+  flex: 1;
+  min-width: 0;
+  font-family: monospace;
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
