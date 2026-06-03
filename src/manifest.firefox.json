@@ -1,5 +1,18 @@
 {
   "manifest_version": 2,
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{f03c369b-ec55-4eac-97cd-79f775e60320}",
+      "data_collection_permissions": {
+        "required": [
+          "browsingActivity",
+          "websiteActivity",
+          "websiteContent",
+          "personallyIdentifyingInfo"
+        ]
+      }
+    }
+  },
   "icons": {
     "16": "icon-16x16.png",
     "32": "icon-32x32.png",
