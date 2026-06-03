@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import type { RecordedEvent } from '../types.ts';
 
 const props = defineProps<{ events: RecordedEvent[] }>();
@@ -32,8 +32,10 @@ watch(
   () => props.events.length,
   () => {
     if (collapsed.value) return;
-    const el = logEl.value;
-    if (el) el.scrollTop = el.scrollHeight;
+    nextTick(() => {
+      const el = logEl.value;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
   },
 );
 </script>

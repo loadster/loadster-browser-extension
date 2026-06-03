@@ -23,6 +23,7 @@
   font-family: 'Overpass',system-ui,sans-serif;
   color: #fff;
   letter-spacing: 0.03em;
+  max-width: 420px;
 }
 
 .panel-row {
@@ -178,9 +179,7 @@
 }
 
 .event-log-wrap {
-
-  max-width: 300px;
-  min-width: 180px;
+  width: 100%;
 }
 
 .event-log-toggle {
@@ -246,9 +245,17 @@
 .event-chip.hover   { background: rgba(213,248,61,0.18); color: var(--ls-accent-mode); }
 .event-chip.click   { background: rgba(0,200,200,0.18); color: var(--ls-accent-record); }
 .event-chip.dblclick { background: rgba(0,200,200,0.18); color: var(--ls-accent-record); }
+.event-chip.check   { background: rgba(0,200,200,0.18); color: var(--ls-accent-record); }
+.event-chip.uncheck { background: rgba(0,200,200,0.18); color: var(--ls-accent-record); }
 .event-chip.change  { background: rgba(255,180,60,0.18); color: rgb(255,180,60); }
 .event-chip.select  { background: rgba(255,180,60,0.18); color: rgb(255,180,60); }
+.event-chip.fill         { background: rgba(255,180,60,0.18); color: rgb(255,180,60); }
+.event-chip.selectOption { background: rgba(255,180,60,0.18); color: rgb(255,180,60); }
 .event-chip.submit  { background: rgba(230,34,84,0.18); color: var(--ls-dot-record); }
+.event-chip.assertVisible,
+.event-chip.assertText,
+.event-chip.assertValue,
+.event-chip.assertChecked { background: rgba(213,248,61,0.18); color: var(--ls-accent-mode); }
 
 .panel-logo {
   display: flex;

@@ -24,6 +24,7 @@ import type { ModeDef, RecordedEvent } from '../overlay-shared/types';
 import { createSelectorGenerator } from '../locator-shared/injectedScriptFactory';
 import { RecorderMessageType } from '../../../index';
 import { TEST_ID_ATTRIBUTE_NAME, dispatchUserAction, type GenerateSelector } from '../locator-shared/userAction';
+import { stripInternalSelector } from '../overlay-shared/selector';
 
 const MODES: ModeDef[] = [
   { id: 'record', label: 'Record', hint: 'Hold Alt (Option ⌥) and click an element to record a hover' },
@@ -48,14 +49,6 @@ const badgeLabel = computed(() => BADGE_LABELS[mode.value]);
 
 let eventId = 0;
 const recordedEvents = ref<RecordedEvent[]>([]);
-
-function stripInternalSelector(raw?: string): string {
-  if (!raw) return '';
-  return raw
-    .split('>>')
-    .map((seg) => seg.trim().replace(/^internal:/, '').replace(/"i$/, '"'))
-    .join(' >> ');
-}
 
 let lastHoveredEl: Element | null = null;
 let rafPending = false;
