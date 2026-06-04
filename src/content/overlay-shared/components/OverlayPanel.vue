@@ -8,14 +8,17 @@
   >
     <slot name="log" />
     <div class="panel-row">
-      <div class="grip" @pointerdown="onGripDown">⠿</div>
-      <div class="panel-logo" v-html="logoSvg" />
-      <RecordingBadge :mode="mode" :label="badgeLabel" />
-      <div class="separator" />
-      <ModeToolbar :model-value="mode" :modes="modes" @update:model-value="$emit('update:mode', $event)" />
-      <div v-if="activeHint" class="help" tabindex="0" aria-label="Help">
-        ?
-        <div class="help-popover">{{ activeHint }}</div>
+      <div class="panel-column" style="width: 180px;">
+        <div class="grip" @pointerdown="onGripDown">⠿</div>
+        <div class="panel-logo" v-html="logoSvg" />
+        <RecordingBadge :mode="mode" :label="badgeLabel" />
+        <div v-if="activeHint" class="help" tabindex="0" aria-label="Help">
+          ?
+          <div class="help-popover">{{ activeHint }}</div>
+        </div>
+      </div>
+      <div class="panel-column">
+        <ModeToolbar :model-value="mode" :modes="modes" @update:model-value="$emit('update:mode', $event)" />
       </div>
     </div>
   </div>

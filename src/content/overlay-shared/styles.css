@@ -23,10 +23,15 @@
   font-family: 'Overpass',system-ui,sans-serif;
   color: #fff;
   letter-spacing: 0.03em;
-  max-width: 420px;
+  max-width: 430px;
 }
 
 .panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.panel-column {
   display: flex;
   align-items: center;
 }
@@ -50,15 +55,8 @@
   align-items: center;
   font-size: 12px;
   font-weight: 600;
-  padding: 2px 10px 2px 4px;
-}
-
-.separator {
-  width: 1px;
-  height: 16px;
-  background: rgba(255,255,255,0.15);
-  margin: 0 4px;
-  flex-shrink: 0;
+  padding-left: 5px;
+  white-space: nowrap;
 }
 
 .dot {
@@ -79,8 +77,8 @@
 
 .btn {
   height: 28px;
-  padding: 4px 10px;
-  border-radius: 8px;
+  padding: 0;
+  border-radius: 16px;
   font-size: 11px;
   cursor: pointer;
   border: none;
@@ -90,6 +88,8 @@
   font-weight: 400;
   outline: none;
   pointer-events: auto;
+  width: 55px;
+  white-space: nowrap;
 }
 .btn.active              { color: #fff; font-weight: 600; }
 .btn.record.active       { background: var(--ls-accent-record); color: rgba(0,0,0,0.8); }
@@ -102,7 +102,6 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  margin-left: 4px;
   border-radius: 50%;
   font-size: 11px;
   font-weight: 600;
