@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import type { ModeDef } from '../types.ts';
 import RecordingBadge from './RecordingBadge.vue';
 import ModeToolbar from './ModeToolbar.vue';
@@ -36,12 +36,19 @@ const props = defineProps<{
   mode: string;
   modes: ModeDef[];
   badgeLabel: string;
+  persistKey?: string;
 }>();
 
 defineEmits<{ 'update:mode': [mode: string] }>();
 
 const panelRef = ref<HTMLElement | null>(null);
-const { pos, onGripDown } = useDraggable(panelRef);
+const { pos, onGripDown, clampToViewport } = useDraggable(panelRef, props.persistKey);
 
 const activeHint = computed(() => props.modes.find((m) => m.id === props.mode)?.hint ?? null);
+
+onMounted(() => {
+  if (pos.value && panelRef.value) {
+    clampToViewport(panelRef.value);
+  }
+});
 </script>

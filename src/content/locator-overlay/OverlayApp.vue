@@ -6,7 +6,7 @@
       :selector="hoveredSelector"
       :mode="mode"
     />
-    <OverlayPanel :mode="mode" :modes="MODES" :badge-label="badgeLabel" @update:mode="mode = $event as Mode">
+    <OverlayPanel :mode="mode" :modes="MODES" :badge-label="badgeLabel" :persist-key="LOCATOR_OVERLAY_STATE_KEY" @update:mode="mode = $event as Mode">
       <template #log>
         <EventLog :events="recordedEvents" />
       </template>
@@ -25,6 +25,12 @@ import { createSelectorGenerator } from '../locator-shared/injectedScriptFactory
 import { RecorderMessageType } from '../../../index';
 import { TEST_ID_ATTRIBUTE_NAME, dispatchUserAction, type GenerateSelector } from '../locator-shared/userAction';
 import { stripInternalSelector } from '../overlay-shared/selector';
+import {
+  LOCATOR_OVERLAY_STATE_KEY,
+  loadOverlayState,
+  patchOverlayState,
+  clearOverlayState,
+} from '../overlay-shared/persistence';
 
 const MODES: ModeDef[] = [
   { id: 'record', label: 'Record', hint: 'Hold Alt (Option ⌥) and click an element to record a hover' },
@@ -41,14 +47,17 @@ const { RECORDING_STATUS, USER_ACTION } = RecorderMessageType;
 const host = inject<HTMLElement>('overlayHost')!;
 
 const enabled = ref(false);
-const mode = ref<Mode>('record');
+const _saved = loadOverlayState(LOCATOR_OVERLAY_STATE_KEY);
+const mode = ref<Mode>((_saved.mode as Mode) ?? 'record');
 const hoveredRect = ref<DOMRect | null>(null);
 const hoveredSelector = ref<string | null>(null);
 
 const badgeLabel = computed(() => BADGE_LABELS[mode.value]);
 
-let eventId = 0;
-const recordedEvents = ref<RecordedEvent[]>([]);
+const recordedEvents = ref<RecordedEvent[]>(_saved.events ?? []);
+let eventId = recordedEvents.value.length > 0
+  ? Math.max(...recordedEvents.value.map((e) => e.id))
+  : 0;
 
 let lastHoveredEl: Element | null = null;
 let rafPending = false;
@@ -66,6 +75,7 @@ function clearHover() {
 
 watch(mode, (newMode) => {
   if (newMode !== 'pick') clearHover();
+  patchOverlayState(LOCATOR_OVERLAY_STATE_KEY, { mode: newMode });
 });
 
 watch(enabled, (val) => {
@@ -73,6 +83,7 @@ watch(enabled, (val) => {
     mode.value = 'record';
     clearHover();
     recordedEvents.value = [];
+    clearOverlayState(LOCATOR_OVERLAY_STATE_KEY);
   }
 });
 
@@ -116,6 +127,7 @@ onMounted(() => {
       selector: stripInternalSelector(data.rawSelector) || data.tagName?.toLowerCase() || '?',
     };
     recordedEvents.value.push(entry);
+    patchOverlayState(LOCATOR_OVERLAY_STATE_KEY, { events: recordedEvents.value });
   });
 
   document.addEventListener('mousemove', (e: MouseEvent) => {

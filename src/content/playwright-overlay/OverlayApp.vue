@@ -1,6 +1,6 @@
 <template>
   <HighlightBox v-if="state.hoveredRect" :rect="state.hoveredRect" :selector="state.hoveredSelector" :mode="state.mode" />
-  <OverlayPanel v-if="isTopFrame" :mode="state.mode" :modes="MODES" :badge-label="badgeLabel" @update:mode="state.mode = $event as Mode">
+  <OverlayPanel v-if="isTopFrame" :mode="state.mode" :modes="MODES" :badge-label="badgeLabel" :persist-key="PW_OVERLAY_STATE_KEY" @update:mode="state.mode = $event as Mode">
     <template #log>
       <EventLog :events="recordedEvents" />
     </template>
@@ -15,6 +15,11 @@ import OverlayPanel from '../overlay-shared/components/OverlayPanel.vue';
 import EventLog from '../overlay-shared/components/EventLog.vue';
 import type { ModeDef, RecordedEvent } from '../overlay-shared/types';
 import { stripInternalSelector } from '../overlay-shared/selector';
+import {
+  PW_OVERLAY_STATE_KEY,
+  loadOverlayState,
+  patchOverlayState,
+} from '../overlay-shared/persistence';
 
 const MODES: ModeDef[] = [
   { id: 'record', label: 'Record' },
@@ -32,18 +37,26 @@ const BADGE_LABELS: Record<Mode, string> = {
 
 const isTopFrame = window === window.top;
 
-const state = reactive<OverlayState>({ mode: 'record', hoveredRect: null, hoveredSelector: null });
+const _saved = isTopFrame ? loadOverlayState(PW_OVERLAY_STATE_KEY) : {};
+const state = reactive<OverlayState>({
+  mode: ((_saved.mode as Mode) ?? 'record'),
+  hoveredRect: null,
+  hoveredSelector: null,
+});
 const injectedScript = inject<any>('injectedScript')!;
 const host = inject<HTMLElement>('overlayHost')!;
 
 const badgeLabel = computed(() => BADGE_LABELS[state.mode]);
 
-let eventId = 0;
-const recordedEvents = ref<RecordedEvent[]>([]);
+const recordedEvents = ref<RecordedEvent[]>(isTopFrame ? (_saved.events ?? []) : []);
+let eventId = recordedEvents.value.length > 0
+  ? Math.max(...recordedEvents.value.map((e) => e.id))
+  : 0;
 
 function pushEvent(action: string, selector: string): void {
   if (isTopFrame) {
     recordedEvents.value.push({ id: ++eventId, action, selector: stripInternalSelector(selector) });
+    patchOverlayState(PW_OVERLAY_STATE_KEY, { events: recordedEvents.value });
   } else {
     window.top?.postMessage({ __pw_recorder_event: { action, selector } }, '*');
   }
@@ -54,7 +67,10 @@ function pushEvent(action: string, selector: string): void {
 if (isTopFrame) {
   watch(
     () => state.mode,
-    (newMode) => broadcastMode(window, newMode),
+    (newMode) => {
+      broadcastMode(window, newMode);
+      patchOverlayState(PW_OVERLAY_STATE_KEY, { mode: newMode });
+    },
   );
   window.addEventListener('message', (e) => {
     const ev = e.data?.__pw_recorder_event;
@@ -127,6 +143,11 @@ function isSelf(el: EventTarget | null): boolean {
 }
 
 onMounted(() => {
+  // Broadcast the restored mode to any already-loaded same-origin iframes.
+  if (isTopFrame && state.mode !== 'record') {
+    broadcastMode(window, state.mode);
+  }
+
   document.addEventListener(
     'mousemove',
     (e) => {

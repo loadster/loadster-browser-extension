@@ -1,7 +1,19 @@
 import { ref, type Ref } from 'vue';
+import { loadOverlayState, patchOverlayState } from '../persistence';
 
-export function useDraggable(panelRef: Ref<HTMLElement | null>) {
-  const pos = ref<{ x: number; y: number } | null>(null);
+export function useDraggable(panelRef: Ref<HTMLElement | null>, persistKey?: string) {
+  const saved = persistKey ? loadOverlayState(persistKey).pos : undefined;
+  const pos = ref<{ x: number; y: number } | null>(saved ?? null);
+
+  function clampToViewport(panel: HTMLElement): void {
+    if (!pos.value) return;
+    const w = panel.offsetWidth;
+    const h = panel.offsetHeight;
+    pos.value = {
+      x: Math.max(0, Math.min(window.innerWidth - w, pos.value.x)),
+      y: Math.max(0, Math.min(window.innerHeight - h, pos.value.y)),
+    };
+  }
 
   function onGripDown(e: PointerEvent) {
     const panel = panelRef.value;
@@ -35,11 +47,14 @@ export function useDraggable(panelRef: Ref<HTMLElement | null>) {
       document.documentElement.style.cursor = prevCursor;
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      if (persistKey && pos.value) {
+        patchOverlayState(persistKey, { pos: pos.value });
+      }
     }
 
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   }
 
-  return { pos, onGripDown };
+  return { pos, onGripDown, clampToViewport };
 }

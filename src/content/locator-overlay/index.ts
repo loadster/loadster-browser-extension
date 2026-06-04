@@ -3,6 +3,7 @@ import OverlayApp from './OverlayApp.vue';
 import { mountShadowOverlay } from '../overlay-shared/shadowMount';
 import { RecorderMessageType } from '../../../index';
 import { createMessage } from '../../utils/messagingUtils.js';
+import { clearOverlayState, LOCATOR_OVERLAY_STATE_KEY } from '../overlay-shared/persistence';
 
 const { RECORDING_STATUS, USER_ACTION, ENDPOINT_PAGE_CONNECT } = RecorderMessageType;
 
@@ -69,6 +70,7 @@ if (window.loadsterContentLoaded !== true) {
     replayLastStatus();
 
     window.__loadster_destroyOverlay = () => {
+      clearOverlayState(LOCATOR_OVERLAY_STATE_KEY);
       destroy();
       window.removeEventListener(USER_ACTION, onUserAction);
       window.removeEventListener('pageshow', onPageShow as EventListener);
