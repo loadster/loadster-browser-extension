@@ -36,13 +36,12 @@ const props = defineProps<{
   mode: string;
   modes: ModeDef[];
   badgeLabel: string;
-  persistKey?: string;
 }>();
 
 defineEmits<{ 'update:mode': [mode: string] }>();
 
 const panelRef = ref<HTMLElement | null>(null);
-const { pos, onGripDown, clampToViewport } = useDraggable(panelRef, props.persistKey);
+const { pos, onGripDown, clampToViewport } = useDraggable(panelRef);
 
 const activeHint = computed(() => props.modes.find((m) => m.id === props.mode)?.hint ?? null);
 

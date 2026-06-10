@@ -1,9 +1,9 @@
-import { ref, type Ref } from 'vue';
-import { loadOverlayState, patchOverlayState } from '../persistence';
+import { inject, ref, type Ref } from 'vue';
+import type { OverlayStateStore } from '../persistence';
 
-export function useDraggable(panelRef: Ref<HTMLElement | null>, persistKey?: string) {
-  const saved = persistKey ? loadOverlayState(persistKey).pos : undefined;
-  const pos = ref<{ x: number; y: number } | null>(saved ?? null);
+export function useDraggable(panelRef: Ref<HTMLElement | null>) {
+  const store = inject<OverlayStateStore>('overlayStore');
+  const pos = ref<{ x: number; y: number } | null>(store?.initial.pos ?? null);
 
   function clampToViewport(panel: HTMLElement): void {
     if (!pos.value) return;
@@ -47,8 +47,8 @@ export function useDraggable(panelRef: Ref<HTMLElement | null>, persistKey?: str
       document.documentElement.style.cursor = prevCursor;
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
-      if (persistKey && pos.value) {
-        patchOverlayState(persistKey, { pos: pos.value });
+      if (pos.value) {
+        store?.patch({ pos: pos.value });
       }
     }
 

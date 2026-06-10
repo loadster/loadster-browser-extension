@@ -3,6 +3,7 @@ import { RecorderMessageType, type LoadsterPortMessage, RecordingTrackingData } 
 import Recorder from './Recorder';
 import RecorderController from './playwright/RecorderController';
 import type { ActionInContext } from './playwright/recorderTypes';
+import type { PersistedOverlayState } from '../content/overlay-shared/persistence';
 
 const { NAVIGATE_URL, RECORDING_TRACKING, RECORDING_EVENTS, RECORDING_STOP } = RecorderMessageType;
 
@@ -57,6 +58,7 @@ export default class PlaywrightRecorder extends Recorder {
   private async switchToTab(tab: browser.Tabs.Tab) {
     const oldRecorder = this._activeRecorder;
     const inheritedActions = oldRecorder ? oldRecorder.getActions() : [];
+    const inheritedOverlayState = oldRecorder ? oldRecorder.getOverlayState() : {};
     this._activeRecorder = null;
 
     this.stopBlinkingTitle();
@@ -78,11 +80,11 @@ export default class PlaywrightRecorder extends Recorder {
       oldRecorder.stop().catch(() => {});
     }
 
-    await this.attachTab(tab, inheritedActions);
+    await this.attachTab(tab, inheritedActions, inheritedOverlayState);
   }
 
-  async attachTab(tab: browser.Tabs.Tab, initialActions: ActionInContext[] = []) {
-    const activeRecorder = new RecorderController(tab.id!, tab.url || tab.pendingUrl, initialActions);
+  async attachTab(tab: browser.Tabs.Tab, initialActions: ActionInContext[] = [], initialOverlayState: PersistedOverlayState = {}) {
+    const activeRecorder = new RecorderController(tab.id!, tab.url || tab.pendingUrl, initialActions, initialOverlayState);
 
     activeRecorder.on('codeChanged', (code: string) => {
       this.port.postMessage({

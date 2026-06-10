@@ -1,6 +1,6 @@
 <template>
   <HighlightBox v-if="state.hoveredRect" :rect="state.hoveredRect" :selector="state.hoveredSelector" :mode="state.mode" />
-  <OverlayPanel v-if="isTopFrame" :mode="state.mode" :modes="MODES" :badge-label="badgeLabel" :persist-key="PW_OVERLAY_STATE_KEY" @update:mode="state.mode = $event as Mode">
+  <OverlayPanel v-if="isTopFrame" :mode="state.mode" :modes="MODES" :badge-label="badgeLabel" @update:mode="state.mode = $event as Mode">
     <template #log>
       <EventLog :events="recordedEvents" />
     </template>
@@ -15,11 +15,7 @@ import OverlayPanel from '../overlay-shared/components/OverlayPanel.vue';
 import EventLog from '../overlay-shared/components/EventLog.vue';
 import type { ModeDef, RecordedEvent } from '../overlay-shared/types';
 import { stripInternalSelector } from '../overlay-shared/selector';
-import {
-  PW_OVERLAY_STATE_KEY,
-  loadOverlayState,
-  patchOverlayState,
-} from '../overlay-shared/persistence';
+import type { OverlayStateStore } from '../overlay-shared/persistence';
 
 const MODES: ModeDef[] = [
   { id: 'record', label: 'Record' },
@@ -37,14 +33,16 @@ const BADGE_LABELS: Record<Mode, string> = {
 
 const isTopFrame = window === window.top;
 
-const _saved = isTopFrame ? loadOverlayState(PW_OVERLAY_STATE_KEY) : {};
+const injectedScript = inject<any>('injectedScript')!;
+const host = inject<HTMLElement>('overlayHost')!;
+const store = inject<OverlayStateStore>('overlayStore')!;
+
+const _saved = isTopFrame ? store.initial : {};
 const state = reactive<OverlayState>({
   mode: ((_saved.mode as Mode) ?? 'record'),
   hoveredRect: null,
   hoveredSelector: null,
 });
-const injectedScript = inject<any>('injectedScript')!;
-const host = inject<HTMLElement>('overlayHost')!;
 
 const badgeLabel = computed(() => BADGE_LABELS[state.mode]);
 
@@ -56,7 +54,7 @@ let eventId = recordedEvents.value.length > 0
 function pushEvent(action: string, selector: string): void {
   if (isTopFrame) {
     recordedEvents.value.push({ id: ++eventId, action, selector: stripInternalSelector(selector) });
-    patchOverlayState(PW_OVERLAY_STATE_KEY, { events: recordedEvents.value });
+    store.patch({ events: recordedEvents.value });
   } else {
     window.top?.postMessage({ __pw_recorder_event: { action, selector } }, '*');
   }
@@ -69,7 +67,7 @@ if (isTopFrame) {
     () => state.mode,
     (newMode) => {
       broadcastMode(window, newMode);
-      patchOverlayState(PW_OVERLAY_STATE_KEY, { mode: newMode });
+      store.patch({ mode: newMode });
     },
   );
   window.addEventListener('message', (e) => {

@@ -6,38 +6,39 @@ export interface PersistedOverlayState {
   events?: RecordedEvent[];
 }
 
-export const PW_OVERLAY_STATE_KEY = '__loadster_pw_overlay_state__';
-export const LOCATOR_OVERLAY_STATE_KEY = '__loadster_locator_overlay_state__';
+/**
+ * Transport-agnostic store injected into overlays via Vue provide('overlayStore').
+ *
+ * `initial` is populated by the transport before `enabled` becomes true, so
+ * useDraggable and overlay components can read it synchronously when the panel mounts.
+ *
+ * `patch` pushes a partial update to the background recorder, which merges it into
+ * its own copy so the state survives cross-origin navigation.
+ */
+export interface OverlayStateStore {
+  /** Populated before the panel mounts; safe to read synchronously at setup time. */
+  initial: PersistedOverlayState;
+  /** Push a partial state update to the background. Errors are swallowed. */
+  patch(partial: Partial<PersistedOverlayState>): void;
+}
 
 export const MAX_OVERLAY_EVENTS = 200;
 
-export function loadOverlayState(key: string): PersistedOverlayState {
-  try {
-    const raw = sessionStorage.getItem(key);
-    if (!raw) return {};
-    return JSON.parse(raw) as PersistedOverlayState;
-  } catch {
-    return {};
-  }
-}
+/** CDP binding name used by the Playwright overlay to push state patches to the background. */
+export const OVERLAY_STATE_BINDING = '__pw_overlay_persist__';
 
-export function patchOverlayState(key: string, partial: Partial<PersistedOverlayState>): void {
-  try {
-    const current = loadOverlayState(key);
-    const next: PersistedOverlayState = { ...current, ...partial };
-    if (next.events && next.events.length > MAX_OVERLAY_EVENTS) {
-      next.events = next.events.slice(-MAX_OVERLAY_EVENTS);
-    }
-    sessionStorage.setItem(key, JSON.stringify(next));
-  } catch {
-    // sessionStorage unavailable (sandboxed iframe, quota exceeded, etc.) — degrade gracefully
+/**
+ * Merge a partial state update into the current persisted state.
+ * Trims the events array to the last MAX_OVERLAY_EVENTS entries.
+ * Called by background recorders on every incoming patch.
+ */
+export function mergeOverlayState(
+  current: PersistedOverlayState,
+  partial: Partial<PersistedOverlayState>,
+): PersistedOverlayState {
+  const next: PersistedOverlayState = { ...current, ...partial };
+  if (next.events && next.events.length > MAX_OVERLAY_EVENTS) {
+    next.events = next.events.slice(-MAX_OVERLAY_EVENTS);
   }
-}
-
-export function clearOverlayState(key: string): void {
-  try {
-    sessionStorage.removeItem(key);
-  } catch {
-    // ignore
-  }
+  return next;
 }

@@ -6,6 +6,8 @@ declare global {
     __pw_destroyOverlay: () => void;
     __pw_overlay_loaded: boolean;
     __pw_overlay_action__: (json: string) => void;
+    __pw_overlay_state?: Record<string, any>;
+    __pw_overlay_persist__?: (json: string) => void;
     __pw_injectedScript: any;
     __pw_recorder_loaded: boolean;
   }
