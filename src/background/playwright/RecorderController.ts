@@ -6,6 +6,9 @@
  * - Injects InjectedScript (Playwright's selector engine) for selector generation
  * - Injects a custom recording overlay (hover highlight + recording badge)
  * - Overlay sends actions via a dedicated direct CDP binding: __pw_overlay_action__
+ * - Overlay pushes UI state (mode/pos/events) via __pw_overlay_persist__ binding;
+ *   background merges it into this.overlayState and re-embeds it in the on-new-document
+ *   script so state survives cross-origin navigation.
  * - Accumulates ActionInContext objects and regenerates Playwright test code on every action
  * - Emits 'codeChanged' with the generated playwright-test code
  */
@@ -15,26 +18,26 @@ import type { ActionInContext } from './recorderTypes';
 import { collapseActions, generateCode, JavaScriptLanguageGenerator, } from '../../generated/playwright-codegen.js';
 import { injectedScriptSource } from '../../generated/playwright-recorder-source.js';
 import overlaySource from '../../generated/overlayInjected.js?raw';
+import { OVERLAY_STATE_BINDING, mergeOverlayState, type PersistedOverlayState } from '../../content/overlay-shared/persistence';
 
 /** CDP binding name used by the overlay to send recorded actions to the background. */
 const OVERLAY_BINDING = '__pw_overlay_action__';
 
 /**
- * Single IIFE injected into the page:
+ * Builds the IIFE injected into the page:
  *   1. Guards against double-injection
- *   2. Instantiates InjectedScript (full Playwright selector engine)
- *   3. Mounts the custom recording overlay:
- *      - Hover highlight with selector label
- *      - "Recording" badge in the bottom-right corner
- *      - Captures click / fill / check / selectOption events
- *      - Sends each action via window.__pw_overlay_action__(JSON) — a direct CDP binding
- *
- * DOM creation is deferred until document.documentElement is available because this script
- * may run via Page.addScriptToEvaluateOnNewDocument — before HTML parsing starts.
+ *   2. Embeds the persisted overlay state as window.__pw_overlay_state
+ *   3. Instantiates InjectedScript (full Playwright selector engine)
+ *   4. Mounts the custom recording overlay
  */
-const INJECTION_SCRIPT = `(function () {
+function buildInjectionScript(overlayState: PersistedOverlayState): string {
+  return `(function () {
   if (window.__pw_recorder_loaded) return;
   window.__pw_recorder_loaded = true;
+
+  // Persisted overlay UI state embedded by the background before each injection.
+  // playwright-overlay/index.ts reads this synchronously in __pw_initOverlay.
+  window.__pw_overlay_state = ${JSON.stringify(overlayState)};
 
   // ---- InjectedScript ----
   // Own IIFE + module={} to avoid var-name collisions; instantiated via factory.
@@ -59,24 +62,38 @@ const INJECTION_SCRIPT = `(function () {
   ${overlaySource}
   __pw_initOverlay(injectedScript);
 }());`;
+}
 
 export default class RecorderController extends EventEmitter {
   private readonly tabId: number;
   private readonly initialUrl: string | undefined;
   private actions: ActionInContext[];
+  private overlayState: PersistedOverlayState;
   private readonly generator = new JavaScriptLanguageGenerator(/* isPlaywrightTest */ true);
   private readonly langOptions = { browserName: 'chromium' as const, contextOptions: {} };
   private bound = false;
+  private scriptIdentifier: string | null = null;
+  private reregisterTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(tabId: number, initialUrl?: string, initialActions: ActionInContext[] = []) {
+  constructor(
+    tabId: number,
+    initialUrl?: string,
+    initialActions: ActionInContext[] = [],
+    initialOverlayState: PersistedOverlayState = {},
+  ) {
     super();
     this.tabId = tabId;
     this.initialUrl = initialUrl;
     this.actions = [...initialActions];
+    this.overlayState = { ...initialOverlayState };
   }
 
   getActions(): ActionInContext[] {
     return this.actions;
+  }
+
+  getOverlayState(): PersistedOverlayState {
+    return this.overlayState;
   }
 
   async start(): Promise<void> {
@@ -92,6 +109,12 @@ export default class RecorderController extends EventEmitter {
       name: OVERLAY_BINDING,
     });
 
+    // Overlay state binding: overlay calls window.__pw_overlay_persist__(jsonPayload)
+    // to push mode/pos/events back to the background so they survive navigation.
+    await chrome.debugger.sendCommand({ tabId: this.tabId }, 'Runtime.addBinding', {
+      name: OVERLAY_STATE_BINDING,
+    });
+
     // Enable Page domain for navigation events
     await chrome.debugger.sendCommand({ tabId: this.tabId }, 'Page.enable');
 
@@ -99,10 +122,15 @@ export default class RecorderController extends EventEmitter {
     chrome.debugger.onDetach.addListener(this.onDebuggerDetach);
     this.bound = true;
 
-    // Persist across navigations
-    await chrome.debugger.sendCommand({ tabId: this.tabId }, 'Page.addScriptToEvaluateOnNewDocument', {
-      source: INJECTION_SCRIPT,
-    });
+    // Persist across navigations (re-embeds overlayState on every new document)
+    const addResult = await chrome.debugger.sendCommand(
+      { tabId: this.tabId },
+      'Page.addScriptToEvaluateOnNewDocument',
+      { source: this.buildInjectionScript() },
+    ) as { identifier?: string };
+    if (addResult?.identifier) {
+      this.scriptIdentifier = addResult.identifier;
+    }
 
     // Also inject into the already-loaded page
     await this.injectNow();
@@ -123,6 +151,11 @@ export default class RecorderController extends EventEmitter {
   }
 
   async stop(): Promise<void> {
+    if (this.reregisterTimer) {
+      clearTimeout(this.reregisterTimer);
+      this.reregisterTimer = null;
+    }
+
     if (this.bound) {
       chrome.debugger.onEvent.removeListener(this.onDebuggerEvent);
       chrome.debugger.onDetach.removeListener(this.onDebuggerDetach);
@@ -141,13 +174,53 @@ export default class RecorderController extends EventEmitter {
     return this.generateCodeText();
   }
 
+  private buildInjectionScript(): string {
+    return buildInjectionScript(this.overlayState);
+  }
+
   private async injectNow(): Promise<void> {
     await chrome.debugger
       .sendCommand({ tabId: this.tabId }, 'Runtime.evaluate', {
-        expression: INJECTION_SCRIPT,
+        expression: this.buildInjectionScript(),
         includeCommandLineAPI: false,
       })
       .catch(() => {});
+  }
+
+  /**
+   * Re-registers the on-new-document injection script with the current overlayState,
+   * so any subsequent navigation (any origin) restores the latest UI state.
+   * Debounced to avoid excessive CDP round-trips when state changes rapidly.
+   */
+  private scheduleReregisterScript(): void {
+    if (this.reregisterTimer) clearTimeout(this.reregisterTimer);
+    this.reregisterTimer = setTimeout(() => {
+      this.reregisterTimer = null;
+      this.reregisterOnNewDocumentScript().catch(() => {});
+    }, 500);
+  }
+
+  private async reregisterOnNewDocumentScript(): Promise<void> {
+    if (!this.bound) return;
+
+    if (this.scriptIdentifier) {
+      await chrome.debugger.sendCommand(
+        { tabId: this.tabId },
+        'Page.removeScriptToEvaluateOnNewDocument',
+        { identifier: this.scriptIdentifier },
+      ).catch(() => {});
+      this.scriptIdentifier = null;
+    }
+
+    const result = await chrome.debugger.sendCommand(
+      { tabId: this.tabId },
+      'Page.addScriptToEvaluateOnNewDocument',
+      { source: this.buildInjectionScript() },
+    ).catch(() => null) as { identifier?: string } | null;
+
+    if (result?.identifier) {
+      this.scriptIdentifier = result.identifier;
+    }
   }
 
   private onDebuggerDetach = (
@@ -170,12 +243,23 @@ export default class RecorderController extends EventEmitter {
   ) => {
     if (debuggee.tabId !== this.tabId) return;
 
-    if (method === 'Runtime.bindingCalled' && params?.name === OVERLAY_BINDING) {
-      try {
-        const action = JSON.parse(params.payload as string) as Record<string, unknown>;
-        if (action) this.handleRecordedAction(action);
-      } catch {
-        // ignore malformed payloads
+    if (method === 'Runtime.bindingCalled') {
+      if (params?.name === OVERLAY_BINDING) {
+        try {
+          const action = JSON.parse(params.payload as string) as Record<string, unknown>;
+          if (action) this.handleRecordedAction(action);
+        } catch {
+          // ignore malformed payloads
+        }
+      } else if (params?.name === OVERLAY_STATE_BINDING) {
+        try {
+          const partial = JSON.parse(params.payload as string) as Partial<PersistedOverlayState>;
+          this.overlayState = mergeOverlayState(this.overlayState, partial);
+          // Re-register the on-new-document script so the next navigation gets fresh state.
+          this.scheduleReregisterScript();
+        } catch {
+          // ignore malformed payloads
+        }
       }
     } else if (method === 'Page.frameNavigated') {
       const frame = params?.frame as Record<string, unknown> | undefined;

@@ -1,14 +1,21 @@
 <template>
   <HighlightBox v-if="state.hoveredRect" :rect="state.hoveredRect" :selector="state.hoveredSelector" :mode="state.mode" />
-  <OverlayPanel v-if="isTopFrame" :mode="state.mode" :modes="MODES" :badge-label="badgeLabel" @update:mode="state.mode = $event as Mode" />
+  <OverlayPanel v-if="isTopFrame" :mode="state.mode" :modes="MODES" :badge-label="badgeLabel" @update:mode="state.mode = $event as Mode">
+    <template #log>
+      <EventLog :events="recordedEvents" />
+    </template>
+  </OverlayPanel>
 </template>
 
 <script setup lang="ts">
-import { inject, onMounted, reactive, computed, watch } from 'vue';
+import { inject, onMounted, reactive, computed, ref, watch } from 'vue';
 import type { Mode, OverlayState } from './types';
 import HighlightBox from '../overlay-shared/components/HighlightBox.vue';
 import OverlayPanel from '../overlay-shared/components/OverlayPanel.vue';
-import type { ModeDef } from '../overlay-shared/types';
+import EventLog from '../overlay-shared/components/EventLog.vue';
+import type { ModeDef, RecordedEvent } from '../overlay-shared/types';
+import { stripInternalSelector } from '../overlay-shared/selector';
+import type { OverlayStateStore } from '../overlay-shared/persistence';
 
 const MODES: ModeDef[] = [
   { id: 'record', label: 'Record' },
@@ -26,18 +33,49 @@ const BADGE_LABELS: Record<Mode, string> = {
 
 const isTopFrame = window === window.top;
 
-const state = reactive<OverlayState>({ mode: 'record', hoveredRect: null, hoveredSelector: null });
 const injectedScript = inject<any>('injectedScript')!;
 const host = inject<HTMLElement>('overlayHost')!;
+const store = inject<OverlayStateStore>('overlayStore')!;
+
+const _saved = isTopFrame ? store.initial : {};
+const state = reactive<OverlayState>({
+  mode: ((_saved.mode as Mode) ?? 'record'),
+  hoveredRect: null,
+  hoveredSelector: null,
+});
 
 const badgeLabel = computed(() => BADGE_LABELS[state.mode]);
 
+const recordedEvents = ref<RecordedEvent[]>(isTopFrame ? (_saved.events ?? []) : []);
+let eventId = recordedEvents.value.length > 0
+  ? Math.max(...recordedEvents.value.map((e) => e.id))
+  : 0;
+
+function pushEvent(action: string, selector: string): void {
+  if (isTopFrame) {
+    recordedEvents.value.push({ id: ++eventId, action, selector: stripInternalSelector(selector) });
+    store.patch({ events: recordedEvents.value });
+  } else {
+    window.top?.postMessage({ __pw_recorder_event: { action, selector } }, '*');
+  }
+}
+
 // Top frame broadcasts mode changes; iframes listen and sync their local mode.
+// Top frame also receives recorded-event messages forwarded from iframes.
 if (isTopFrame) {
   watch(
     () => state.mode,
-    (newMode) => broadcastMode(window, newMode),
+    (newMode) => {
+      broadcastMode(window, newMode);
+      store.patch({ mode: newMode });
+    },
   );
+  window.addEventListener('message', (e) => {
+    const ev = e.data?.__pw_recorder_event;
+    if (ev && typeof ev.action === 'string' && typeof ev.selector === 'string') {
+      recordedEvents.value.push({ id: ++eventId, action: ev.action, selector: stripInternalSelector(ev.selector) });
+    }
+  });
 } else {
   window.addEventListener('message', (e) => {
     if (e.data && typeof e.data.__pw_recorder_mode === 'string') {
@@ -92,6 +130,8 @@ function sendAction(action: object) {
     const framePath = computeFramePath();
     window.__pw_overlay_action__(JSON.stringify({ ...action, framePath }));
   } catch {}
+  const { name, selector } = action as { name?: string; selector?: string };
+  if (name && selector) pushEvent(name, selector);
 }
 
 // Events from inside a closed shadow DOM are retargeted to the host element,
@@ -101,6 +141,11 @@ function isSelf(el: EventTarget | null): boolean {
 }
 
 onMounted(() => {
+  // Broadcast the restored mode to any already-loaded same-origin iframes.
+  if (isTopFrame && state.mode !== 'record') {
+    broadcastMode(window, state.mode);
+  }
+
   document.addEventListener(
     'mousemove',
     (e) => {

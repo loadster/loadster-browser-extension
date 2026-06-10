@@ -3,11 +3,13 @@ import Recorder from './Recorder';
 import { generateId } from './utils.js';
 import { type BrowserEvent, type LoadsterPortMessage, RecorderMessageType, type RecordingTrackingData } from '../../index';
 import { parseRecorderConfig } from '../utils/messagingUtils';
+import { mergeOverlayState, type PersistedOverlayState } from '../content/overlay-shared/persistence';
 
-const { ENDPOINT_PAGE_CONNECT, NAVIGATE_URL, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION, RECORDING_TRACKING } = RecorderMessageType;
+const { ENDPOINT_PAGE_CONNECT, NAVIGATE_URL, RECORDING_STATUS, RECORDING_EVENTS, USER_ACTION, OVERLAY_STATE, RECORDING_TRACKING } = RecorderMessageType;
 
 export default class BrowserRecorder extends Recorder {
   pageContentScriptId = 'loadster-locator-recorder';
+  private overlayState: PersistedOverlayState = {};
 
   static async cleanupStaleScripts() {
     if (browser.runtime.getManifest().manifest_version === 3) {
@@ -66,6 +68,8 @@ export default class BrowserRecorder extends Recorder {
     pagePort.onMessage.addListener((msg: LoadsterPortMessage) => {
       if (msg.type === USER_ACTION) {
         this.uploadBrowserEvent(msg.data as unknown as BrowserEvent);
+      } else if (msg.type === OVERLAY_STATE) {
+        this.overlayState = mergeOverlayState(this.overlayState, msg.data as unknown as Partial<PersistedOverlayState>);
       }
     });
 
@@ -150,28 +154,35 @@ export default class BrowserRecorder extends Recorder {
   }
 
   async injectForegroundScripts(tabId: number) {
-    try {
-      const { manifest_version } = browser.runtime.getManifest();
+    const { manifest_version } = browser.runtime.getManifest();
 
-      if (manifest_version === 3) {
+    if (manifest_version === 3) {
+      try {
         await browser.scripting.executeScript({
           target: { tabId, allFrames: true },
           files: ['src/content/locator-overlay/index.js']
         });
-      } else {
+      } catch (err) {
+        console.error(err);
+      }
+    } else {
+      try {
         await browser.tabs.executeScript(tabId, {
           file: 'src/content/locator-overlay/index.js',
           allFrames: true,
           runAt: 'document_start'
         });
+      } catch {
+        // Firefox rejects the allFrames promise when any frame (about:blank, srcdoc,
+        // sandboxed, or cross-origin restricted) can't be injected. Injectable frames —
+        // including the top frame — are still injected. This is expected on cross-origin
+        // pages; swallow it silently so injection doesn't block the status update below.
       }
-
-      this.recording = true;
-      this.updateWindowsRecordingStatus();
-      this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, type: 'inject-content-script' } as RecordingTrackingData);
-    } catch (err) {
-      console.error(err);
     }
+
+    this.recording = true;
+    this.updateWindowsRecordingStatus();
+    this.sendMessageToLoadster(RECORDING_TRACKING, { tabId, type: 'inject-content-script' } as RecordingTrackingData);
   }
 
   async injectSubFrameScript(tabId: number, frameId: number) {
@@ -225,7 +236,8 @@ export default class BrowserRecorder extends Recorder {
   updateWindowsRecordingStatus() {
     this.sendMessageToPage(RECORDING_STATUS, {
       enabled: this.recording,
-      options: this.recordingOptions
+      options: this.recordingOptions,
+      overlayState: this.overlayState,
     });
   }
 }

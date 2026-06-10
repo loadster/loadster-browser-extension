@@ -17,6 +17,7 @@ export enum RecorderMessageType {
   RECORDING_STOP = 'RecordingStop',
   NAVIGATE_URL = 'Url',
   USER_ACTION = 'loadster_user_action',
+  OVERLAY_STATE = 'loadster_overlay_state',
   OPTIONS = 'loadster_recording_options',
   RECORDING_TRACKING = 'loadster_recording_tracking',
   ENDPOINT_PAGE_CONNECT = 'loadster-browser-recorder-tab'

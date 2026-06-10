@@ -6,7 +6,11 @@
       :selector="hoveredSelector"
       :mode="mode"
     />
-    <OverlayPanel :mode="mode" :modes="MODES" :badge-label="badgeLabel" @update:mode="mode = $event as Mode" />
+    <OverlayPanel :mode="mode" :modes="MODES" :badge-label="badgeLabel" @update:mode="mode = $event as Mode">
+      <template #log>
+        <EventLog :events="recordedEvents" />
+      </template>
+    </OverlayPanel>
   </template>
 </template>
 
@@ -15,10 +19,13 @@ import { inject, onMounted, ref, computed, watch } from 'vue';
 import type { Mode } from './types.ts';
 import HighlightBox from '../overlay-shared/components/HighlightBox.vue';
 import OverlayPanel from '../overlay-shared/components/OverlayPanel.vue';
-import type { ModeDef } from '../overlay-shared/types';
+import EventLog from '../overlay-shared/components/EventLog.vue';
+import type { ModeDef, RecordedEvent } from '../overlay-shared/types';
 import { createSelectorGenerator } from '../locator-shared/injectedScriptFactory';
 import { RecorderMessageType } from '../../../index';
 import { TEST_ID_ATTRIBUTE_NAME, dispatchUserAction, type GenerateSelector } from '../locator-shared/userAction';
+import { stripInternalSelector } from '../overlay-shared/selector';
+import type { OverlayStateStore } from '../overlay-shared/persistence';
 
 const MODES: ModeDef[] = [
   { id: 'record', label: 'Record', hint: 'Hold Alt (Option ⌥) and click an element to record a hover' },
@@ -30,9 +37,10 @@ const BADGE_LABELS: Record<Mode, string> = {
   pick: 'Hover mode',
 };
 
-const { RECORDING_STATUS } = RecorderMessageType;
+const { RECORDING_STATUS, USER_ACTION } = RecorderMessageType;
 
 const host = inject<HTMLElement>('overlayHost')!;
+const store = inject<OverlayStateStore>('overlayStore')!;
 
 const enabled = ref(false);
 const mode = ref<Mode>('record');
@@ -40,6 +48,9 @@ const hoveredRect = ref<DOMRect | null>(null);
 const hoveredSelector = ref<string | null>(null);
 
 const badgeLabel = computed(() => BADGE_LABELS[mode.value]);
+
+const recordedEvents = ref<RecordedEvent[]>([]);
+let eventId = 0;
 
 let lastHoveredEl: Element | null = null;
 let rafPending = false;
@@ -57,12 +68,15 @@ function clearHover() {
 
 watch(mode, (newMode) => {
   if (newMode !== 'pick') clearHover();
+  store.patch({ mode: newMode });
 });
 
 watch(enabled, (val) => {
   if (!val) {
     mode.value = 'record';
     clearHover();
+    recordedEvents.value = [];
+    eventId = 0;
   }
 });
 
@@ -89,11 +103,36 @@ function emitHoverAction(el: Element) {
 onMounted(() => {
   window.addEventListener(RECORDING_STATUS, (event: Event) => {
     const detail = (event as CustomEvent).detail;
-    enabled.value = detail.enabled;
+    console.log(detail, store.initial);
     if (detail.enabled && !initialized) {
+      // Read from store.initial (raw port data) rather than detail.overlayState
+      // (cloneInto'd). Firefox's X-ray wrappers strip nested objects from the
+      // cloned CustomEvent detail, so primitives like detail.enabled survive but
+      // nested objects like detail.overlayState.events arrive opaque/empty.
+      // store.initial is set from the raw message before the CustomEvent is
+      // dispatched, so it bypasses cloneInto entirely.
+      const saved = store.initial;
+      mode.value = (saved.mode as Mode) ?? 'record';
+      const savedEvents = saved.events ?? [];
+      recordedEvents.value = savedEvents;
+      eventId = savedEvents.length > 0 ? Math.max(...savedEvents.map((e) => e.id)) : 0;
       generateSelector = createSelectorGenerator(window, { testIdAttributeName: TEST_ID_ATTRIBUTE_NAME });
       initialized = true;
     }
+    enabled.value = detail.enabled;
+  });
+
+  window.addEventListener(USER_ACTION, (event: Event) => {
+    if (!enabled.value) return;
+    const data = (event as CustomEvent).detail?.data;
+    if (!data) return;
+    const entry: RecordedEvent = {
+      id: ++eventId,
+      action: data.action ?? '?',
+      selector: stripInternalSelector(data.rawSelector) || data.tagName?.toLowerCase() || '?',
+    };
+    recordedEvents.value.push(entry);
+    store.patch({ events: recordedEvents.value });
   });
 
   document.addEventListener('mousemove', (e: MouseEvent) => {
